@@ -1,0 +1,19 @@
+# Rehabilitation Hospital Management System (RHMS) - Project Specification
+
+## Overview
+A comprehensive web-based platform for managing rehabilitation hospital operations, workflows, and patient care.
+
+## Core Modules & Screens
+1. **Admin/Staff Dashboard**: High-level analytics, today's appointments, and recovery statistics.
+2. **Patient Management**: Registration, profile viewing, and medical history tracking.
+3. **Rehabilitation Assessment**: Detailed forms for functional independence, muscle strength, and mobility.
+4. **Treatment Planning**: Individualized exercise regimens and therapy frequency tracking.
+5. **Therapy Session Log**: Recording real-time session data, patient response, and progress.
+6. **Exercise Library**: A searchable database of rehabilitation movements.
+7. **Patient Portal**: A patient-facing view for tracking their own recovery and appointments.
+8. **Billing & Reporting**: Invoice generation and hospital performance analytics.
+
+## Technical Architecture
+- **Frontend**: React (Vite) with Tailwind CSS.
+- **State**: Context API for authentication and global UI state.
+- **UI Patterns**: Sidebar navigation, tabbed interfaces for patient records, and modal-based assessments.
