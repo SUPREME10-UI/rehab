@@ -1,11 +1,130 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import './App.css'
+
+// =============================================================================
+// CustomSelect — Modal-style dropdown component
+// =============================================================================
+function CustomSelect({ name, value, onChange, options, style, className, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selected = options.find((o) => String(o.value) === String(value))
+  const displayLabel = selected ? selected.label : (placeholder || 'Select…')
+
+  const handleSelect = (optValue) => {
+    // Simulate a synthetic event for compatibility with existing onChange handlers
+    const syntheticEvent = { target: { name, value: optValue } }
+    onChange(syntheticEvent)
+    setOpen(false)
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={`cselect-wrapper ${className || ''}`}
+      style={style}
+    >
+      {/* Trigger button */}
+      <button
+        type="button"
+        className={`cselect-trigger ${open ? 'open' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="cselect-label">{displayLabel}</span>
+        <span className={`cselect-chevron material-symbols-outlined ${open ? 'rotated' : ''}`}>
+          expand_more
+        </span>
+      </button>
+
+      {/* Modal dropdown panel */}
+      {open && (
+        <>
+          {/* Backdrop for small dropdowns (transparent) */}
+          <div className="cselect-backdrop" onClick={() => setOpen(false)} />
+          <div className="cselect-panel" role="listbox">
+            <div className="cselect-panel-inner">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={String(opt.value) === String(value)}
+                  className={`cselect-option ${String(opt.value) === String(value) ? 'selected' : ''}`}
+                  onClick={() => handleSelect(opt.value)}
+                >
+                  <span className="cselect-option-label">{opt.label}</span>
+                  {String(opt.value) === String(value) && (
+                    <span className="material-symbols-outlined cselect-check">check</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 // Initial Mock Data
 const clientAppointments = [
-  { id: 1, title: 'Physical Therapy (Gait & Balance)', dateDay: '12', dateMonth: 'OCT', time: '10:00 AM - 11:00 AM', provider: 'Dr. A. Smith, PT', location: 'Therapy Room 204' },
-  { id: 2, title: 'Occupational Therapy (Daily Living)', dateDay: '15', dateMonth: 'OCT', time: '02:00 PM - 03:00 PM', provider: 'Sarah Jenkins, OT', location: 'ADL Suite B' },
-  { id: 3, title: 'Physiatrist Progress Review', dateDay: '18', dateMonth: 'OCT', time: '11:30 AM - 12:15 PM', provider: 'Dr. Lena Ortiz, MD', location: 'Clinical Suite 102' }
+  {
+    id: 1, title: 'Physical Therapy — Gait & Balance', dateDay: '12', dateMonth: 'OCT',
+    time: '10:00 AM – 11:00 AM', provider: 'Dr. A. Smith, PT', location: 'Therapy Room 204',
+    status: 'Upcoming', type: 'Physical Therapy', telehealth: false, duration: '60 min',
+    notes: 'Focus on stride length and balance training. Bring your knee brace.',
+    avatar: 'AS', avatarColor: '#1d4ed8'
+  },
+  {
+    id: 2, title: 'Occupational Therapy — Daily Living', dateDay: '15', dateMonth: 'OCT',
+    time: '02:00 PM – 03:00 PM', provider: 'Sarah L., OT', location: 'ADL Suite B',
+    status: 'Upcoming', type: 'Occupational Therapy', telehealth: false, duration: '60 min',
+    notes: 'ADL activity training: dressing, bathing, and stair safety techniques.',
+    avatar: 'SL', avatarColor: '#16a34a'
+  },
+  {
+    id: 3, title: 'Physiatrist Progress Review', dateDay: '18', dateMonth: 'OCT',
+    time: '11:30 AM – 12:15 PM', provider: 'Dr. Lena Ortiz, MD', location: 'Clinical Suite 102',
+    status: 'Upcoming', type: 'Consultation', telehealth: true, duration: '45 min',
+    notes: 'Monthly goal milestone review. Telehealth — join via the patient app link.',
+    avatar: 'LO', avatarColor: '#7c3aed'
+  }
+]
+
+const clientSessionHistory = [
+  {
+    id: 101, title: 'Physical Therapy — Knee ROM', dateDay: '05', dateMonth: 'OCT',
+    time: '10:00 AM – 11:00 AM', provider: 'Dr. A. Smith, PT',
+    status: 'Completed', type: 'Physical Therapy', duration: '60 min',
+    sessionNote: 'Patient achieved 110° active knee flexion. Progressing well. Continue heel slides.',
+    avatar: 'AS', avatarColor: '#1d4ed8'
+  },
+  {
+    id: 102, title: 'Occupational Therapy — Grip Strength', dateDay: '02', dateMonth: 'OCT',
+    time: '01:00 PM – 02:00 PM', provider: 'Sarah L., OT',
+    status: 'Completed', type: 'Occupational Therapy', duration: '60 min',
+    sessionNote: 'TheraBand grip exercises completed. Grip force improved by 12% this session.',
+    avatar: 'SL', avatarColor: '#16a34a'
+  },
+  {
+    id: 103, title: 'Physiatrist Initial Assessment', dateDay: '28', dateMonth: 'SEP',
+    time: '11:00 AM – 12:00 PM', provider: 'Dr. Lena Ortiz, MD',
+    status: 'Completed', type: 'Consultation', duration: '60 min',
+    sessionNote: 'Baseline FIM score established. Recovery roadmap and discharge goals set.',
+    avatar: 'LO', avatarColor: '#7c3aed'
+  }
 ]
 
 const clientGoals = [
@@ -15,24 +134,41 @@ const clientGoals = [
 ]
 
 const clientExercises = [
-  { id: 1, name: 'Heel Slides', focus: 'Knee ROM', sets: 3, reps: 10, duration: '10 min', tag: 'Phase 1' },
-  { id: 2, name: 'Quad Sets', focus: 'Isometric Strength', sets: 2, reps: 15, duration: '8 min', tag: 'Phase 1' },
-  { id: 3, name: 'Straight Leg Raise', focus: 'Hip & Core Strength', sets: 3, reps: 10, duration: '12 min', tag: 'Phase 2' },
-  { id: 4, name: 'Single-Leg Balance Drills', focus: 'Proprioception', sets: 3, reps: '30s hold', duration: '10 min', tag: 'Phase 2' }
+  { id: 1, name: 'Heel Slides', focus: 'Knee ROM', sets: 3, reps: 10, duration: '10 min', tag: 'Phase 1', icon: 'directions_walk', target: 'Quadriceps & Knee Joint', rest: '45s', difficulty: 'Beginner', description: 'Gently slide your heel towards your buttocks while keeping foot flat on table.' },
+  { id: 2, name: 'Quad Sets', focus: 'Isometric Strength', sets: 2, reps: 15, duration: '8 min', tag: 'Phase 1', icon: 'fitness_center', target: 'Vastus Medialis (VMO)', rest: '30s', difficulty: 'Beginner', description: 'Tighten thigh muscle, pushing the back of your knee down flat into the bed.' },
+  { id: 3, name: 'Straight Leg Raise', focus: 'Hip & Core Strength', sets: 3, reps: 10, duration: '12 min', tag: 'Phase 2', icon: 'accessibility_new', target: 'Hip Flexors & Core', rest: '60s', difficulty: 'Intermediate', description: 'Raise leg to 45 degrees, holding for 2 seconds before slowly lowering.' },
+  { id: 4, name: 'Single-Leg Balance Drills', focus: 'Proprioception', sets: 3, reps: '30s hold', duration: '10 min', tag: 'Phase 2', icon: 'self_improvement', target: 'Ankle & Hip Stabilizers', rest: '60s', difficulty: 'Intermediate', description: 'Stand on affected leg with slight knee bend while maintaining stable posture.' }
 ]
 
 const adminSchedule = [
-  { time: '09:00 AM', title: 'Gait Training & Hydrotherapy', patient: 'Eleanor Vance', therapist: 'J. Doe, PT', room: 'Rm 204' },
-  { time: '10:30 AM', title: 'Cognitive & Speech Evaluation', patient: 'Marcus Thorne', therapist: 'S. Williams, SLP', room: 'Rm 112' },
-  { time: '01:00 PM', title: 'Upper Extremity Resistance Drills', patient: 'Sarah Jenkins', therapist: 'A. Lee, OT', room: 'Lounge B' },
-  { time: '02:30 PM', title: 'Spinal Mobility & Transfer Training', patient: 'David Chen', therapist: 'Dr. L. Ortiz, MD', room: 'Rehab Gym' }
+  { id: 1, time: '09:00 AM', title: 'Gait Training & Hydrotherapy', patient: 'Eleanor Vance', therapist: 'J. Doe, PT', room: 'Rm 204', type: 'Physical Therapy', status: 'Confirmed', duration: '60 min', notes: 'Patient requires walker assist. Focus on stride length and balance on hydrotherapy treadmill.' },
+  { id: 2, time: '10:30 AM', title: 'Cognitive & Speech Evaluation', patient: 'Marcus Thorne', therapist: 'S. Williams, SLP', room: 'Rm 112', type: 'Speech Therapy', status: 'Confirmed', duration: '45 min', notes: 'Initial post-stroke speech assessment. Administer ASHA functional assessment battery.' },
+  { id: 3, time: '11:15 AM', title: 'FIM Re-assessment Session', patient: 'Lisa Park', therapist: 'Dr. L. Ortiz, PT', room: 'Rm 208', type: 'Assessment', status: 'Pending', duration: '30 min', notes: 'Monthly FIM re-evaluation. Compare against baseline scores from admission.' },
+  { id: 4, time: '01:00 PM', title: 'Upper Extremity Resistance Drills', patient: 'Sarah Jenkins', therapist: 'A. Lee, OT', room: 'Lounge B', type: 'Occupational Therapy', status: 'Confirmed', duration: '60 min', notes: 'TheraBand exercises and grip strengthening. Target: 80% ROM by next week.' },
+  { id: 5, time: '02:30 PM', title: 'Spinal Mobility & Transfer Training', patient: 'David Chen', therapist: 'Dr. L. Ortiz, PT', room: 'Rehab Gym', type: 'Physical Therapy', status: 'Confirmed', duration: '60 min', notes: 'Log-roll technique and sit-to-stand transfers. Precaution: no flexion > 90 degrees.' },
+  { id: 6, time: '03:30 PM', title: 'Discharge Planning Consultation', patient: 'Robert Kim', therapist: 'S. Williams, SLP', room: 'Conference Rm', type: 'Consultation', status: 'Cancelled', duration: '30 min', notes: 'Family meeting to review home modification needs and outpatient referral options.' },
+  { id: 7, time: '04:00 PM', title: 'Pain Management & TENS Therapy', patient: 'Eleanor Vance', therapist: 'A. Lee, OT', room: 'Rm 204', type: 'Occupational Therapy', status: 'Confirmed', duration: '45 min', notes: 'TENS electrode placement at lumbar L4-L5. Patient reports 6/10 pain baseline.' }
 ]
 
+const SESSION_TYPE_COLORS = {
+  'Physical Therapy': { bg: '#eff6ff', color: '#1d4ed8', dot: '#2563eb' },
+  'Speech Therapy': { bg: '#fef3c7', color: '#b45309', dot: '#d97706' },
+  'Occupational Therapy': { bg: '#f0fdf4', color: '#16a34a', dot: '#22c55e' },
+  'Assessment': { bg: '#f5f3ff', color: '#7c3aed', dot: '#8b5cf6' },
+  'Consultation': { bg: '#fdf4ff', color: '#9d174d', dot: '#ec4899' },
+}
+
 function App() {
-  // Auth & User Session State
-  const [sessionUser, setSessionUser] = useState(null)
+  // Auth & User Session State — Default to Clinical Practitioner Admin Session
+  const [sessionUser, setSessionUser] = useState({
+    role: 'admin',
+    name: 'Dr. Lena Ortiz, PT',
+    email: 'dortiz@rhms.org',
+    specialization: 'Lead Physical Therapist',
+    facility: 'St. Jude Rehab Center'
+  })
   const [authMode, setAuthMode] = useState('signup') // 'signup' | 'login'
-  const [portalRole, setPortalRole] = useState('client') // 'client' | 'admin'
+  const [portalRole, setPortalRole] = useState('admin') // 'client' | 'admin'
   const [activeTab, setActiveTab] = useState('dashboard')
 
   const [adminPatients, setAdminPatients] = useState([
@@ -94,13 +230,38 @@ function App() {
   // Selected Patient for Assessment
   const [selectedPatientId, setSelectedPatientId] = useState('PT-88234')
 
+  // Stepper & Assessment Form Page States
+  const [assessmentStep, setAssessmentStep] = useState(1)
+
+  const [vitalsHistory, setVitalsHistory] = useState({
+    bp: '120/80',
+    hr: '74',
+    rr: '16',
+    spo2: '98',
+    temp: '98.6',
+    medicalHistory: 'Hypertension (managed), Left Total Knee Arthroplasty (2021), Type 2 Diabetes.',
+    allergies: 'Penicillin (Rash), Latex (Mild)',
+    precautions: 'High Fall Risk, Weight-Bearing As Tolerated (WBAT) Right Lower Extremity.'
+  })
+
   // ROM & Musculoskeletal Assessment State
   const [romAssessment, setRomAssessment] = useState({
     kneeFlexion: 110,
+    hipFlexion: '105°',
+    mmtScore: '4/5 (Good)',
     painScore: 3,
+    painLocation: 'Anterior Right Knee, intermittent aching post-ambulation',
+    edema: '1+ Mild Pitting Edema at right ankle',
     shortTermGoal: 'Patient will perform sit-to-stand transfers with minimal assist (FIM 4) within 2 weeks.',
     longTermGoal: 'Patient will ambulate 150ft independently with rolling walker within 6 weeks.',
     clinicalNotes: 'Steady functional progress noted. Patient demonstrates improved motor planning during leg raises and transfer practice.'
+  })
+
+  const [dischargePlan, setDischargePlan] = useState({
+    dischargeDestination: 'Home with Home Health Physical Therapy',
+    targetDate: '2026-11-15',
+    caregiverSupport: 'Spouse trained & available for transfer assistance at home',
+    equipmentNeeded: 'Rolling Walker, Raised Toilet Seat, Shower Chair'
   })
 
   // Calculate Live Dynamic FIM Scores
@@ -117,6 +278,53 @@ function App() {
   const handleFimChange = (key, val) => {
     setFimScores((prev) => ({ ...prev, [key]: Number(val) }))
   }
+
+  // Schedule Filter & Session Detail Popup State
+  const [showScheduleFilter, setShowScheduleFilter] = useState(false)
+  const [scheduleFilters, setScheduleFilters] = useState({
+    therapist: 'All',
+    type: 'All',
+    status: 'All',
+    search: ''
+  })
+  const [showSessionDetail, setShowSessionDetail] = useState(false)
+  const [selectedSession, setSelectedSession] = useState(null)
+
+  const uniqueTherapists = ['All', ...Array.from(new Set(adminSchedule.map(s => s.therapist)))]
+  const uniqueTypes = ['All', ...Array.from(new Set(adminSchedule.map(s => s.type)))]
+
+  const filteredSchedule = adminSchedule.filter(item => {
+    const matchTherapist = scheduleFilters.therapist === 'All' || item.therapist === scheduleFilters.therapist
+    const matchType = scheduleFilters.type === 'All' || item.type === scheduleFilters.type
+    const matchStatus = scheduleFilters.status === 'All' || item.status === scheduleFilters.status
+    const matchSearch = scheduleFilters.search === '' ||
+      item.patient.toLowerCase().includes(scheduleFilters.search.toLowerCase()) ||
+      item.title.toLowerCase().includes(scheduleFilters.search.toLowerCase())
+    return matchTherapist && matchType && matchStatus && matchSearch
+  })
+
+  const activeFilterCount = [
+    scheduleFilters.therapist !== 'All',
+    scheduleFilters.type !== 'All',
+    scheduleFilters.status !== 'All',
+    scheduleFilters.search !== ''
+  ].filter(Boolean).length
+
+  // Patient Portal Interactive State
+  const [completedExerciseIds, setCompletedExerciseIds] = useState([1])
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
+  const [selectedRescheduleAppt, setSelectedRescheduleAppt] = useState(null)
+  const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
+  const [showExerciseDetailModal, setShowExerciseDetailModal] = useState(false)
+  const [selectedExerciseDetail, setSelectedExerciseDetail] = useState(null)
+  const [clientDailyPain, setClientDailyPain] = useState(3)
+
+  const toggleExerciseComplete = (id) => {
+    setCompletedExerciseIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
 
   const getFimDescription = (score) => {
     switch (Number(score)) {
@@ -250,6 +458,19 @@ function App() {
   }
 
   const currentPatient = adminPatients.find((p) => p.id === selectedPatientId) || adminPatients[0]
+
+  // Evaluation completion modal state
+  const [showEvalModal, setShowEvalModal] = useState(false)
+  const [evalDraftSaved, setEvalDraftSaved] = useState(false)
+
+  const handleSaveDraft = () => {
+    setEvalDraftSaved(true)
+    setTimeout(() => setEvalDraftSaved(false), 2500)
+  }
+
+  const handlePrintAssessment = () => {
+    window.print()
+  }
 
   // --------------------------------------------------------------------------
   // RENDER: Unauthenticated Auth Landing Page
@@ -419,18 +640,18 @@ function App() {
                       <label>Rehabilitation Diagnosis / Condition</label>
                       <div className="input-with-icon">
                         <span className="material-symbols-outlined">healing</span>
-                        <select
+                        <CustomSelect
                           name="condition"
-                          className="modern-select"
                           value={clientForm.condition}
                           onChange={handleClientChange}
-                        >
-                          <option value="Post-Op ACL Reconstruction">Post-Op ACL Reconstruction</option>
-                          <option value="Stroke Recovery (Hemiparesis)">Stroke Recovery (Hemiparesis)</option>
-                          <option value="Post-Op Total Hip Replacement">Post-Op Total Hip Replacement</option>
-                          <option value="Spinal Cord Injury Rehabilitation">Spinal Cord Injury Rehabilitation</option>
-                          <option value="Parkinson's Motor Function Training">Parkinson's Motor Function Training</option>
-                        </select>
+                          options={[
+                            { value: 'Post-Op ACL Reconstruction', label: 'Post-Op ACL Reconstruction' },
+                            { value: 'Stroke Recovery (Hemiparesis)', label: 'Stroke Recovery (Hemiparesis)' },
+                            { value: 'Post-Op Total Hip Replacement', label: 'Post-Op Total Hip Replacement' },
+                            { value: 'Spinal Cord Injury Rehabilitation', label: 'Spinal Cord Injury Rehabilitation' },
+                            { value: "Parkinson's Motor Function Training", label: "Parkinson's Motor Function Training" },
+                          ]}
+                        />
                       </div>
                     </div>
 
@@ -522,18 +743,18 @@ function App() {
                       <label>Clinical Specialization</label>
                       <div className="input-with-icon">
                         <span className="material-symbols-outlined">stethoscope</span>
-                        <select
+                        <CustomSelect
                           name="specialization"
-                          className="modern-select"
                           value={adminForm.specialization}
                           onChange={handleAdminChange}
-                        >
-                          <option value="Physical Therapy">Physical Therapy (PT)</option>
-                          <option value="Occupational Therapy">Occupational Therapy (OT)</option>
-                          <option value="Speech Language Pathology">Speech Language Pathology (SLP)</option>
-                          <option value="Neurological Rehabilitation">Neurological Rehabilitation</option>
-                          <option value="Clinical Administrator">Clinical Administrator / Director</option>
-                        </select>
+                          options={[
+                            { value: 'Physical Therapy', label: 'Physical Therapy (PT)' },
+                            { value: 'Occupational Therapy', label: 'Occupational Therapy (OT)' },
+                            { value: 'Speech Language Pathology', label: 'Speech Language Pathology (SLP)' },
+                            { value: 'Neurological Rehabilitation', label: 'Neurological Rehabilitation' },
+                            { value: 'Clinical Administrator', label: 'Clinical Administrator / Director' },
+                          ]}
+                        />
                       </div>
                     </div>
 
@@ -624,17 +845,8 @@ function App() {
                 </button>
               </p>
 
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1.5px dashed #e2e8f0' }}>
-                {isClientPortal ? (
-                  <button
-                    type="button"
-                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    onClick={() => navigateToRole('admin')}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lock</span>
-                    Go to Clinical Admin Link (`/admin`)
-                  </button>
-                ) : (
+              {!isClientPortal && (
+                <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1.5px dashed #e2e8f0' }}>
                   <button
                     type="button"
                     style={{ background: 'none', border: 'none', color: '#0f52ba', fontSize: '0.8rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
@@ -643,8 +855,8 @@ function App() {
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>arrow_back</span>
                     Return to Patient Portal Link (`/`)
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </main>
@@ -712,6 +924,14 @@ function App() {
                 <span className="material-symbols-outlined">fitness_center</span>
                 Home Exercises
               </button>
+              <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
+              <button
+                className={`nav-link-item ${activeTab === 'settings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                <span className="material-symbols-outlined">settings</span>
+                Settings
+              </button>
             </>
           ) : (
             <>
@@ -743,6 +963,14 @@ function App() {
                 <span className="material-symbols-outlined">calendar_today</span>
                 Facility Schedule
               </button>
+              <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
+              <button
+                className={`nav-link-item ${activeTab === 'settings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                <span className="material-symbols-outlined">settings</span>
+                Settings
+              </button>
             </>
           )}
         </nav>
@@ -764,6 +992,39 @@ function App() {
           </div>
 
           <div className="topbar-actions">
+            {!isClient && (
+              <button
+                type="button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '50px',
+                  border: '1.5px solid #0f52ba',
+                  background: '#dcfce7',
+                  color: '#15803d',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  setSessionUser({
+                    role: 'client',
+                    name: 'Sarah Jenkins',
+                    email: 'sarah.j@example.com',
+                    condition: 'Post-Op ACL Reconstruction',
+                    patientId: 'PT-88236'
+                  })
+                  setPortalRole('client')
+                  setActiveTab('dashboard')
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>swap_horiz</span>
+                Switch to Patient Portal
+              </button>
+            )}
+
             <span className={`role-badge-pill ${isClient ? 'client' : 'admin'}`}>
               <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
                 {isClient ? 'person' : 'clinical_notes'}
@@ -789,142 +1050,1227 @@ function App() {
           {/* ================================================================== */}
           {isClient && (
             <>
-              {/* Hero Banner */}
-              <section className="portal-hero-banner">
-                <div className="hero-banner-content">
-                  <h2>Welcome back, {sessionUser.name.split(' ')[0]}!</h2>
-                  <p>
-                    You are currently on Day 24 of your <strong>{sessionUser.condition}</strong> program. Your mobility scores are up 15% this week.
-                  </p>
-                </div>
-                <div className="hero-stats-pills">
-                  <div className="stat-pill-glass">
-                    <strong>80%</strong>
-                    <span>Mobility Target</span>
-                  </div>
-                  <div className="stat-pill-glass">
-                    <strong>3/10</strong>
-                    <span>Avg Pain Index</span>
-                  </div>
-                </div>
-              </section>
-
-              {/* Bento Grid */}
-              <div className="bento-grid">
-                {/* My Progress Bar Chart Card */}
-                <div className="bento-card col-span-7">
-                  <div className="card-header">
-                    <div className="card-header-left">
-                      <h3>My Recovery Progress</h3>
-                      <p>Weekly Mobility Index vs Pain Score Trend</p>
+              {/* ── Patient Modal: Reschedule Appointment ── */}
+              {showRescheduleModal && selectedRescheduleAppt && createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', zIndex: 99999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                    padding: '16px', boxSizing: 'border-box'
+                  }}
+                  onClick={() => setShowRescheduleModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff', borderRadius: '24px', padding: '32px',
+                      width: '100%', maxWidth: '480px', maxHeight: '85vh', overflowY: 'auto',
+                      boxShadow: '0 24px 64px rgba(15,52,186,0.25)', animation: 'fadeSlideIn 0.25s ease'
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Request Session Reschedule</h3>
+                      <button
+                        onClick={() => setShowRescheduleModal(false)}
+                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>close</span>
+                      </button>
                     </div>
-                    <span className="trend-tag positive">
-                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>trending_up</span> +15%
-                    </span>
-                  </div>
 
-                  <div className="chart-container-box">
-                    <div className="bar-chart-flex">
-                      <div className="bar-col">
-                        <div className="bar-fill" style={{ height: '40%' }}>
-                          <span className="bar-tooltip">W1: 40%</span>
-                        </div>
-                        <span className="bar-label">Week 1</span>
+                    {rescheduleSuccess ? (
+                      <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '54px', color: '#16a34a', marginBottom: '12px' }}>check_circle</span>
+                        <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Reschedule Request Sent!</h4>
+                        <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '6px', lineHeight: 1.5 }}>
+                          Your therapist <strong>{selectedRescheduleAppt.provider}</strong> has been notified. We will confirm your new session time shortly via app notification.
+                        </p>
+                        <button
+                          onClick={() => { setShowRescheduleModal(false); setRescheduleSuccess(false) }}
+                          style={{ marginTop: '20px', padding: '10px 24px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                        >
+                          Close Window
+                        </button>
                       </div>
-                      <div className="bar-col">
-                        <div className="bar-fill" style={{ height: '55%' }}>
-                          <span className="bar-tooltip">W2: 55%</span>
+                    ) : (
+                      <form onSubmit={(e) => { e.preventDefault(); setRescheduleSuccess(true) }}>
+                        <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px 16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Session</span>
+                          <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{selectedRescheduleAppt.title}</h4>
+                          <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>{selectedRescheduleAppt.time} • {selectedRescheduleAppt.provider}</p>
                         </div>
-                        <span className="bar-label">Week 2</span>
-                      </div>
-                      <div className="bar-col">
-                        <div className="bar-fill" style={{ height: '70%' }}>
-                          <span className="bar-tooltip">W3: 70%</span>
+
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Preferred New Date</label>
+                          <input type="date" className="modern-input" required defaultValue="2026-10-20" />
                         </div>
-                        <span className="bar-label">Week 3</span>
-                      </div>
-                      <div className="bar-col">
-                        <div className="bar-fill" style={{ height: '82%' }}>
-                          <span className="bar-tooltip">W4: 82%</span>
+
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Preferred Time Slot</label>
+                          <CustomSelect
+                            name="rescheduleTime"
+                            value="morning"
+                            onChange={() => { }}
+                            options={[
+                              { value: 'morning', label: 'Morning (09:00 AM - 12:00 PM)' },
+                              { value: 'afternoon', label: 'Afternoon (01:00 PM - 04:00 PM)' },
+                              { value: 'evening', label: 'Late Afternoon (04:00 PM - 06:00 PM)' }
+                            ]}
+                          />
                         </div>
-                        <span className="bar-label">Week 4 (Current)</span>
+
+                        <div className="form-group" style={{ marginBottom: '24px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Reason for Reschedule (Optional)</label>
+                          <textarea className="modern-input" rows="3" placeholder="e.g. Schedule conflict, feeling fatigued..." style={{ resize: 'vertical' }} />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <button type="button" onClick={() => setShowRescheduleModal(false)} className="btn-signout" style={{ flex: 1 }}>
+                            Cancel
+                          </button>
+                          <button type="submit" className="modern-submit-btn" style={{ flex: 2, marginTop: 0 }}>
+                            Submit Request
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* ── Patient Modal: Exercise Details & Log ── */}
+              {showExerciseDetailModal && selectedExerciseDetail && createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', zIndex: 99999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                    padding: '16px', boxSizing: 'border-box'
+                  }}
+                  onClick={() => setShowExerciseDetailModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff', borderRadius: '24px', padding: '32px',
+                      width: '100%', maxWidth: '520px', maxHeight: '85vh', overflowY: 'auto',
+                      boxShadow: '0 24px 64px rgba(15,52,186,0.25)', animation: 'fadeSlideIn 0.25s ease'
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                      <div>
+                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800 }}>
+                          {selectedExerciseDetail.focus}
+                        </span>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>{selectedExerciseDetail.name}</h3>
                       </div>
+                      <button
+                        onClick={() => setShowExerciseDetailModal(false)}
+                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>close</span>
+                      </button>
+                    </div>
+
+                    {/* Step guidance */}
+                    {/* Step guidance */}
+                    <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+                        Prescribed Prescription
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center', marginBottom: '16px' }}>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', fontWeight: 700 }}>SETS</span>
+                          <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{selectedExerciseDetail.sets}</strong>
+                        </div>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', fontWeight: 700 }}>REPS</span>
+                          <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{selectedExerciseDetail.reps}</strong>
+                        </div>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', fontWeight: 700 }}>EST. TIME</span>
+                          <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{selectedExerciseDetail.duration}</strong>
+                        </div>
+                      </div>
+
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#374151', marginBottom: '8px' }}>Execution Instructions:</h4>
+                      <ol style={{ fontSize: '0.85rem', color: '#475569', paddingLeft: '18px', lineHeight: 1.6, margin: 0 }}>
+                        <li>Lie flat on your back on a firm surface with legs straight.</li>
+                        <li>Slowly slide your heel toward your buttocks, bending your knee as far as comfortable.</li>
+                        <li>Hold at the peak bend for 3 seconds, keeping your foot flat.</li>
+                        <li>Slowly return to starting position. Repeat for prescribed repetitions.</li>
+                      </ol>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        onClick={() => {
+                          toggleExerciseComplete(selectedExerciseDetail.id)
+                          setShowExerciseDetailModal(false)
+                        }}
+                        style={{
+                          flex: 1, padding: '12px 0', borderRadius: '50px', border: 'none',
+                          background: completedExerciseIds.includes(selectedExerciseDetail.id) ? '#dcfce7' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
+                          color: completedExerciseIds.includes(selectedExerciseDetail.id) ? '#16a34a' : '#fff',
+                          fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer'
+                        }}
+                      >
+                        {completedExerciseIds.includes(selectedExerciseDetail.id) ? '✓ Completed Today' : 'Mark Completed Today'}
+                      </button>
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.body
+              )}
 
-                {/* Upcoming Therapy Sessions Card */}
-                <div className="bento-card col-span-5">
-                  <div className="card-header">
-                    <div className="card-header-left">
-                      <h3>Upcoming Therapy</h3>
-                      <p>Scheduled sessions with your care team</p>
+              {/* ── PATIENT TAB 1: MY RECOVERY OVERVIEW ── */}
+              {activeTab === 'dashboard' && (
+                <>
+                  {/* Hero Banner */}
+                  <section className="portal-hero-banner">
+                    <div className="hero-banner-content">
+                      <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'inline-block', marginBottom: '12px' }}>
+                        Day 24 of Recovery
+                      </span>
+                      <h2>Welcome back, {sessionUser.name.split(' ')[0]}! 👋</h2>
+                      <p>
+                        You're on <strong>Day 24</strong> of your <strong>{sessionUser.condition}</strong> program. Mobility scores are up <strong>+15%</strong> this week — great progress!
+                      </p>
                     </div>
-                  </div>
+                    <div className="hero-stats-pills">
+                      <div className="stat-pill-glass">
+                        <strong>80%</strong>
+                        <span>Mobility Target</span>
+                      </div>
+                      <div className="stat-pill-glass">
+                        <strong>{clientDailyPain}/10</strong>
+                        <span>Pain Index</span>
+                      </div>
+                      <div className="stat-pill-glass">
+                        <strong>🔥 6</strong>
+                        <span>Day Streak</span>
+                      </div>
+                    </div>
+                  </section>
 
-                  <div className="timeline-list">
-                    {clientAppointments.map((item) => (
-                      <div key={item.id} className="timeline-item-row">
-                        <div className="timeline-date-badge">
-                          <strong>{item.dateDay}</strong>
-                          <span>{item.dateMonth}</span>
+                  {/* Quick Action Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', padding: '0 0 4px 0' }}>
+                    {[
+                      { icon: 'fitness_center', label: 'Exercises', sublabel: `${completedExerciseIds.length}/${clientExercises.length} done`, tab: 'exercises', color: '#0f52ba', bg: '#eff6ff' },
+                      { icon: 'event', label: 'Sessions', sublabel: `${clientAppointments.length} upcoming`, tab: 'appointments', color: '#7c3aed', bg: '#f5f3ff' },
+                      { icon: 'flag', label: 'My Goals', sublabel: '78% achieved', tab: 'goals', color: '#059669', bg: '#ecfdf5' },
+                      { icon: 'monitor_heart', label: 'Pain Today', sublabel: `${clientDailyPain}/10 index`, tab: null, color: '#dc2626', bg: '#fef2f2' },
+                    ].map(card => (
+                      <div
+                        key={card.label}
+                        onClick={() => card.tab && setActiveTab(card.tab)}
+                        style={{ background: card.bg, borderRadius: '16px', padding: '18px', border: `1.5px solid ${card.color}22`, cursor: card.tab ? 'pointer' : 'default', transition: 'transform 0.15s, box-shadow 0.15s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                        onMouseEnter={e => { if (card.tab) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)' } }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' }}
+                      >
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#fff' }}>{card.icon}</span>
                         </div>
-                        <div className="timeline-info">
-                          <h4>{item.title}</h4>
-                          <p>{item.time} • {item.provider}</p>
-                        </div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: card.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{card.label}</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{card.sublabel}</div>
+                        {card.tab && <div style={{ fontSize: '0.72rem', color: card.color, fontWeight: 700, marginTop: '8px' }}>View details →</div>}
                       </div>
                     ))}
                   </div>
-                </div>
 
-                {/* Treatment Goals Card */}
-                <div className="bento-card col-span-7">
-                  <div className="card-header">
-                    <div className="card-header-left">
-                      <h3>Active Treatment Goals</h3>
-                      <p>Milestones set by your lead physiatrist</p>
-                    </div>
-                  </div>
-
-                  {clientGoals.map((goal) => (
-                    <div key={goal.id} className="goal-item-card">
-                      <div className="goal-top-row">
-                        <h4>{goal.title}</h4>
-                        <span>{goal.progress}% Completed</span>
-                      </div>
-                      <p>{goal.summary}</p>
-                      <div className="progress-track-bg">
-                        <div className="progress-fill-bar" style={{ width: `${goal.progress}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Exercise Routine Card */}
-                <div className="bento-card col-span-5">
-                  <div className="card-header">
-                    <div className="card-header-left">
-                      <h3>Assigned Home Routine</h3>
-                      <p>Daily prescribed mobility exercises</p>
-                    </div>
-                  </div>
-
-                  <div className="timeline-list">
-                    {clientExercises.slice(0, 3).map((ex) => (
-                      <div key={ex.id} className="timeline-item-row">
-                        <div className="timeline-date-badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                          <span className="material-symbols-outlined">fitness_center</span>
+                  {/* Bento Grid */}
+                  <div className="bento-grid">
+                    {/* Enhanced Progress Chart */}
+                    <div className="bento-card col-span-7">
+                      <div className="card-header">
+                        <div className="card-header-left">
+                          <h3>My Recovery Progress</h3>
+                          <p>Weekly Mobility Score — 4-Week Trend</p>
                         </div>
-                        <div className="timeline-info">
-                          <h4>{ex.name}</h4>
-                          <p>{ex.sets} sets × {ex.reps} • {ex.duration}</p>
+                        <span className="trend-tag positive">
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>trending_up</span> +15%
+                        </span>
+                      </div>
+
+                      {/* Dual metric legend */}
+                      <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', paddingLeft: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'linear-gradient(135deg,#0f52ba,#2563eb)' }} />
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Mobility Score %</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} />
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Exercise Completion %</span>
                         </div>
                       </div>
-                    ))}
+
+                      <div className="chart-container-box">
+                        <div className="bar-chart-flex">
+                          {[
+                            { label: 'Week 1', mob: 40, ex: 50 },
+                            { label: 'Week 2', mob: 55, ex: 62 },
+                            { label: 'Week 3', mob: 70, ex: 75 },
+                            { label: 'Week 4', mob: 82, ex: 88 },
+                          ].map(w => (
+                            <div key={w.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '160px', width: '100%', justifyContent: 'center' }}>
+                                <div style={{ width: '28%', height: `${w.mob}%`, background: 'linear-gradient(180deg,#2563eb,#0f52ba)', borderRadius: '6px 6px 0 0', position: 'relative', transition: 'height 0.5s ease' }}>
+                                  <span style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.62rem', color: '#1d4ed8', fontWeight: 800, whiteSpace: 'nowrap' }}>{w.mob}%</span>
+                                </div>
+                                <div style={{ width: '28%', height: `${w.ex}%`, background: 'linear-gradient(180deg,#22c55e,#16a34a)', borderRadius: '6px 6px 0 0', position: 'relative', transition: 'height 0.5s ease' }}>
+                                  <span style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.62rem', color: '#16a34a', fontWeight: 800, whiteSpace: 'nowrap' }}>{w.ex}%</span>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>{w.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pain Tracker + Stats Side Panel */}
+                    <div className="bento-card col-span-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {/* Pain Tracker */}
+                      <div>
+                        <div className="card-header" style={{ marginBottom: '14px' }}>
+                          <div className="card-header-left">
+                            <h3>Today's Pain Level</h3>
+                            <p>Tap a number to log your current pain</p>
+                          </div>
+                          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: clientDailyPain <= 3 ? '#16a34a' : clientDailyPain <= 6 ? '#f59e0b' : '#dc2626' }}>
+                            {clientDailyPain}/10
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'space-between' }}>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <button
+                              key={n}
+                              onClick={() => setClientDailyPain(n)}
+                              style={{
+                                width: '32px', height: '32px', borderRadius: '8px', border: 'none',
+                                background: n === clientDailyPain
+                                  ? (n <= 3 ? '#16a34a' : n <= 6 ? '#f59e0b' : '#dc2626')
+                                  : '#f1f5f9',
+                                color: n === clientDailyPain ? '#fff' : '#64748b',
+                                fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                            >{n}</button>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#16a34a', fontWeight: 700 }}>No Pain</span>
+                          <span style={{ color: '#f59e0b', fontWeight: 700 }}>Moderate</span>
+                          <span style={{ color: '#dc2626', fontWeight: 700 }}>Severe</span>
+                        </div>
+                      </div>
+
+                      {/* Stats row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {[
+                          { label: 'Days in Program', value: '24', icon: 'calendar_month', color: '#0f52ba', bg: '#eff6ff' },
+                          { label: 'Sessions Done', value: `${clientSessionHistory.length}`, icon: 'check_circle', color: '#16a34a', bg: '#f0fdf4' },
+                          { label: 'Goals Achieved', value: '78%', icon: 'flag', color: '#7c3aed', bg: '#f5f3ff' },
+                          { label: 'Day Streak 🔥', value: '6', icon: 'local_fire_department', color: '#ea580c', bg: '#fff7ed' },
+                        ].map(s => (
+                          <div key={s.label} style={{ background: s.bg, borderRadius: '12px', padding: '12px', border: `1px solid ${s.color}22` }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: s.color }}>{s.icon}</span>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: s.color, lineHeight: 1, marginTop: '4px' }}>{s.value}</div>
+                            <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Prescribed Home Routine (Interactive Tracker) */}
+                    <div className="bento-card col-span-5">
+                      <div className="card-header">
+                        <div className="card-header-left">
+                          <h3>Today's Routine</h3>
+                          <p>{completedExerciseIds.length} of {clientExercises.length} exercises completed</p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('exercises')}
+                          style={{ background: 'none', border: 'none', color: '#0f52ba', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+                        >
+                          View All →
+                        </button>
+                      </div>
+
+                      {/* Progress ring visual */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', borderRadius: '14px', padding: '14px', marginBottom: '14px', border: '1px solid #e2e8f0' }}>
+                        <svg width="52" height="52" viewBox="0 0 52 52">
+                          <circle cx="26" cy="26" r="22" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                          <circle cx="26" cy="26" r="22" fill="none" stroke="#0f52ba" strokeWidth="5"
+                            strokeDasharray={`${2 * Math.PI * 22}`}
+                            strokeDashoffset={`${2 * Math.PI * 22 * (1 - completedExerciseIds.length / clientExercises.length)}`}
+                            strokeLinecap="round"
+                            transform="rotate(-90 26 26)"
+                            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+                          />
+                          <text x="26" y="30" textAnchor="middle" fontSize="11" fontWeight="800" fill="#0f172a">
+                            {Math.round((completedExerciseIds.length / clientExercises.length) * 100)}%
+                          </text>
+                        </svg>
+                        <div>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                            {completedExerciseIds.length === clientExercises.length ? '🎉 All Done!' : `${clientExercises.length - completedExerciseIds.length} exercises left`}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Keep up your 6-day streak!</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {clientExercises.map((ex) => {
+                          const isDone = completedExerciseIds.includes(ex.id)
+                          return (
+                            <div
+                              key={ex.id}
+                              style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: isDone ? '#f0fdf4' : '#f8fafc', padding: '12px 14px',
+                                borderRadius: '12px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}`,
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <button
+                                  onClick={() => toggleExerciseComplete(ex.id)}
+                                  style={{
+                                    width: '26px', height: '26px', borderRadius: '50%',
+                                    border: isDone ? 'none' : '2px solid #cbd5e1',
+                                    background: isDone ? '#16a34a' : '#fff',
+                                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s'
+                                  }}
+                                >
+                                  {isDone && <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span>}
+                                </button>
+                                <div>
+                                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: isDone ? '#166534' : '#0f172a', textDecoration: isDone ? 'line-through' : 'none', margin: 0 }}>{ex.name}</h4>
+                                  <span style={{ fontSize: '0.73rem', color: '#64748b' }}>{ex.sets} sets × {ex.reps} • {ex.duration}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => { setSelectedExerciseDetail(ex); setShowExerciseDetailModal(true) }}
+                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>info</span>
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Treatment Goals Preview */}
+                    <div className="bento-card col-span-7">
+                      <div className="card-header">
+                        <div className="card-header-left">
+                          <h3>Active Treatment Goals</h3>
+                          <p>Milestones set by lead physiatrist Dr. Lena Ortiz</p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('goals')}
+                          style={{ background: 'none', border: 'none', color: '#0f52ba', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+                        >
+                          Full Details →
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {clientGoals.map((goal) => {
+                          const catColors = { Mobility: '#0f52ba', 'Range of Motion': '#7c3aed', Comfort: '#16a34a' }
+                          const cc = catColors[goal.category] || '#475569'
+                          return (
+                            <div key={goal.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ background: `${cc}18`, color: cc, borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800 }}>{goal.category}</span>
+                                  <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{goal.title}</h4>
+                                </div>
+                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: cc }}>{goal.progress}%</span>
+                              </div>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 10px 0', lineHeight: 1.5 }}>{goal.summary}</p>
+                              <div style={{ background: '#e2e8f0', borderRadius: '50px', height: '7px', overflow: 'hidden' }}>
+                                <div style={{ width: `${goal.progress}%`, height: '100%', background: `linear-gradient(90deg, ${cc}, ${cc}88)`, borderRadius: '50px', transition: 'width 0.5s ease' }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Next Session Countdown Card */}
+                    <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '24px 28px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#1d4ed8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(29,78,216,0.5)' }}>
+                            <strong style={{ fontSize: '1.3rem', fontWeight: 900, lineHeight: 1 }}>{clientAppointments[0].dateDay}</strong>
+                            <span style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{clientAppointments[0].dateMonth}</span>
+                          </div>
+                          <div>
+                            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'inline-block', marginBottom: '6px' }}>
+                              Next Session
+                            </span>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>{clientAppointments[0].title}</h3>
+                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: '3px' }}>
+                              {clientAppointments[0].time} · {clientAppointments[0].provider} · {clientAppointments[0].location}
+                            </p>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            onClick={() => setActiveTab('appointments')}
+                            style={{ padding: '10px 20px', borderRadius: '50px', border: '1.5px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            View All Sessions
+                          </button>
+                          <button
+                            onClick={() => alert(`Online check-in confirmed for: ${clientAppointments[0].title}`)}
+                            style={{ padding: '10px 22px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg,#1d4ed8,#0f52ba)', color: '#fff', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(29,78,216,0.5)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+                            Check In Now
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── PATIENT TAB 2: TREATMENT GOALS & DISCHARGE PLAN ── */}
+              {activeTab === 'goals' && (
+                <div className="bento-grid">
+                  {/* Overall Target Card */}
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f52ba,#1d4ed8)', color: '#fff', padding: '28px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Personalized Recovery Plan
+                        </span>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Post-Op ACL Reconstruction Roadmap</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', marginTop: '4px' }}>Lead Physiatrist: <strong>Dr. Lena Ortiz, MD</strong> | Est. Discharge Target: <strong>Nov 15, 2026</strong></p>
+                      </div>
+                      <div style={{ textAlign: 'right', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)', padding: '16px 24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>Overall Milestones Met</span>
+                        <h3 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', margin: 0 }}>78%</h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Goals List */}
+                  <div className="bento-card col-span-8">
+                    <div className="card-header">
+                      <div className="card-header-left">
+                        <h3>Active Rehabilitation Goals</h3>
+                        <p>Track your physical milestones and progress towards independent mobility</p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                      {clientGoals.map((goal) => (
+                        <div key={goal.id} style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '50px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800 }}>{goal.category}</span>
+                              <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{goal.title}</h4>
+                            </div>
+                            <strong style={{ fontSize: '0.95rem', color: '#0f52ba', fontWeight: 800 }}>{goal.progress}%</strong>
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '12px' }}>{goal.summary}</p>
+
+                          <div className="progress-track-bg" style={{ height: '8px', marginBottom: '14px' }}>
+                            <div className="progress-fill-bar" style={{ width: `${goal.progress}%`, background: goal.progress >= 80 ? 'linear-gradient(90deg,#16a34a,#22c55e)' : 'linear-gradient(90deg,#0f52ba,#00b4d8)' }} />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+                            <span>Lead Clinical Note: "Patient showing strong quadriceps activation."</span>
+                            <button
+                              onClick={() => alert(`Progress note requested for "${goal.title}". Your therapist will review at next session.`)}
+                              style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '50px', padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#374151', cursor: 'pointer' }}
+                            >
+                              Request Goal Review
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Discharge Plan Summary Card */}
+                  <div className="bento-card col-span-4">
+                    <div className="card-header">
+                      <div className="card-header-left">
+                        <h3>Discharge Plan Readiness</h3>
+                        <p>Requirements for safe home transition</p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {[
+                        { title: 'Discharge Destination', val: 'Home with Home Health PT', status: 'Approved' },
+                        { title: 'Caregiver Support', val: 'Spouse trained for assistance', status: 'Ready' },
+                        { title: 'DME Equipment Needed', val: 'Rolling Walker & Shower Chair', status: 'Delivered' },
+                        { title: 'Outpatient PT Referral', val: 'St. Jude Outpatient Clinic', status: 'Scheduled' }
+                      ].map((item) => (
+                        <div key={item.title} style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{item.title}</span>
+                            <span style={{ background: '#dcfce7', color: '#16a34a', borderRadius: '50px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 800 }}>{item.status}</span>
+                          </div>
+                          <strong style={{ fontSize: '0.85rem', color: '#0f172a' }}>{item.val}</strong>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* ── PATIENT TAB 3: THERAPY SESSIONS & SCHEDULE ── */}
+              {activeTab === 'appointments' && (
+                <div className="bento-grid">
+                  {/* Page Header Banner */}
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                          My Care Calendar
+                        </span>
+                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Therapy Sessions & Schedule</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
+                          Manage upcoming appointments, view session history, and communicate with your care team.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {[
+                          { label: 'Upcoming', count: clientAppointments.length, icon: 'event', bg: 'rgba(255,255,255,0.15)' },
+                          { label: 'Completed', count: clientSessionHistory.length, icon: 'check_circle', bg: 'rgba(34,197,94,0.2)' },
+                        ].map(stat => (
+                          <div key={stat.label} style={{ background: stat.bg, backdropFilter: 'blur(8px)', borderRadius: '14px', padding: '14px 20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', minWidth: '100px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'rgba(255,255,255,0.9)', display: 'block', marginBottom: '4px' }}>{stat.icon}</span>
+                            <strong style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', display: 'block', lineHeight: 1 }}>{stat.count}</strong>
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.75)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upcoming Sessions */}
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Upcoming Appointments</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your next {clientAppointments.length} scheduled therapy sessions</p>
+                      </div>
+                      <span style={{ background: '#eff6ff', color: '#2563eb', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        {clientAppointments.length} Upcoming
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {clientAppointments.map((appt, idx) => {
+                        const typeColorMap = {
+                          'Physical Therapy': { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                          'Occupational Therapy': { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                          'Consultation': { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
+                        }
+                        const tc = typeColorMap[appt.type] || { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }
+                        return (
+                          <div
+                            key={appt.id}
+                            style={{
+                              background: '#ffffff', borderRadius: '20px', border: `1.5px solid ${tc.border}`,
+                              overflow: 'hidden', boxShadow: '0 2px 12px rgba(15,23,42,0.06)'
+                            }}
+                          >
+
+                            <div style={{ padding: '20px 24px', display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                              {/* Date Badge */}
+                              <div style={{
+                                width: '72px', height: '72px', borderRadius: '16px', flexShrink: 0,
+                                background: `linear-gradient(135deg, ${appt.avatarColor}, ${appt.avatarColor}cc)`,
+                                color: '#fff', display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${appt.avatarColor}40`
+                              }}>
+                                <strong style={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1 }}>{appt.dateDay}</strong>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginTop: '2px', letterSpacing: '0.05em' }}>{appt.dateMonth}</span>
+                              </div>
+
+                              {/* Info block */}
+                              <div style={{ flex: 1, minWidth: '200px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                                  <span style={{ background: tc.bg, color: tc.color, borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, border: `1px solid ${tc.border}` }}>
+                                    {appt.type}
+                                  </span>
+                                  {appt.telehealth && (
+                                    <span style={{ background: '#fef3c7', color: '#b45309', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #fde68a' }}>
+                                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>videocam</span>
+                                      Telehealth
+                                    </span>
+                                  )}
+                                  {!appt.telehealth && (
+                                    <span style={{ background: '#f0fdf4', color: '#166534', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bbf7d0' }}>
+                                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>location_on</span>
+                                      In-Person
+                                    </span>
+                                  )}
+                                  {idx === 0 && (
+                                    <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, border: '1px solid #fecaca' }}>
+                                      Next Up
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>{appt.title}</h4>
+                                <div style={{ display: 'flex', gap: '18px', fontSize: '0.82rem', color: '#64748b', flexWrap: 'wrap' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>schedule</span>
+                                    {appt.time}
+                                  </span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>timer</span>
+                                    {appt.duration}
+                                  </span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>meeting_room</span>
+                                    {appt.location}
+                                  </span>
+                                </div>
+
+                                {/* Therapist row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', padding: '10px 14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: appt.avatarColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, flexShrink: 0 }}>
+                                    {appt.avatar}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a' }}>{appt.provider}</div>
+                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Your {appt.type} Specialist</div>
+                                  </div>
+                                </div>
+
+                                {/* Prep note */}
+                                <div style={{ marginTop: '12px', padding: '10px 14px', background: `${tc.bg}`, borderRadius: '10px', border: `1px solid ${tc.border}` }}>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: tc.color, marginTop: '1px', flexShrink: 0 }}>info</span>
+                                    <p style={{ fontSize: '0.78rem', color: tc.color, margin: 0, fontWeight: 600, lineHeight: 1.5 }}>{appt.notes}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action buttons */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0, minWidth: '150px' }}>
+                                <button
+                                  onClick={() => { setSelectedRescheduleAppt(appt); setShowRescheduleModal(true) }}
+                                  style={{ padding: '10px 18px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#475569', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>edit_calendar</span>
+                                  Reschedule
+                                </button>
+                                <button
+                                  onClick={() => alert(`Online check-in confirmed for: ${appt.title}`)}
+                                  style={{ padding: '10px 18px', borderRadius: '50px', border: 'none', background: `linear-gradient(135deg, ${appt.avatarColor}, ${appt.avatarColor}bb)`, color: '#fff', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 14px ${appt.avatarColor}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{appt.telehealth ? 'videocam' : 'check_circle'}</span>
+                                  {appt.telehealth ? 'Join Session' : 'Check In'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Session History */}
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Session History</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Past completed therapy sessions and therapist notes</p>
+                      </div>
+                      <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        {clientSessionHistory.length} Completed
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {clientSessionHistory.map((session) => {
+                        const typeColorMap = {
+                          'Physical Therapy': { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                          'Occupational Therapy': { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+                          'Consultation': { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
+                        }
+                        const tc = typeColorMap[session.type] || { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }
+                        return (
+                          <div
+                            key={session.id}
+                            style={{ background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '18px 22px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}
+                          >
+                            {/* Date */}
+                            <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: '#e2e8f0', color: '#475569', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <strong style={{ fontSize: '1.1rem', fontWeight: 900, lineHeight: 1 }}>{session.dateDay}</strong>
+                              <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', marginTop: '1px' }}>{session.dateMonth}</span>
+                            </div>
+
+                            {/* Content */}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
+                                <span style={{ background: tc.bg, color: tc.color, borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800, border: `1px solid ${tc.border}` }}>{session.type}</span>
+                                <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>check_circle</span>
+                                  Completed
+                                </span>
+                              </div>
+                              <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>{session.title}</h4>
+                              <div style={{ display: 'flex', gap: '14px', fontSize: '0.78rem', color: '#64748b', marginBottom: '10px', flexWrap: 'wrap' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '13px', color: session.avatarColor }}>schedule</span>
+                                  {session.time}
+                                </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: session.avatarColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 800 }}>{session.avatar}</div>
+                                  {session.provider}
+                                </span>
+                              </div>
+                              {/* Therapist note */}
+                              <div style={{ background: '#fff', borderRadius: '10px', padding: '10px 14px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#64748b', marginTop: '1px', flexShrink: 0 }}>clinical_notes</span>
+                                  <p style={{ fontSize: '0.78rem', color: '#374151', margin: 0, lineHeight: 1.5, fontStyle: 'italic' }}>"{session.sessionNote}"</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PATIENT TAB 4: HOME EXERCISES ── */}
+              {activeTab === 'exercises' && (
+                <div className="bento-grid">
+                  {/* Enhanced Header */}
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Home Exercise Program</span>
+                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Your Prescribed Exercises</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>Complete your daily routine to maintain your recovery streak and hit your weekly targets.</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        {[
+                          { label: 'Today', value: `${completedExerciseIds.length}/${clientExercises.length}`, icon: 'check_circle', bg: 'rgba(34,197,94,0.2)' },
+                          { label: 'Streak', value: '🔥 6', icon: 'local_fire_department', bg: 'rgba(234,88,12,0.2)' },
+                          { label: 'This Week', value: '85%', icon: 'trending_up', bg: 'rgba(255,255,255,0.15)' },
+                        ].map(s => (
+                          <div key={s.label} style={{ background: s.bg, backdropFilter: 'blur(8px)', borderRadius: '14px', padding: '14px 18px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', minWidth: '85px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'rgba(255,255,255,0.9)', display: 'block', marginBottom: '3px' }}>{s.icon}</span>
+                            <strong style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff', display: 'block', lineHeight: 1 }}>{s.value}</strong>
+                            <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 7-Day Streak Calendar */}
+                  <div className="bento-card col-span-7" style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Weekly Progress Tracker</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your exercise completion over the last 7 days</p>
+                      </div>
+                      <span style={{ background: '#fff7ed', color: '#ea580c', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🔥 6-Day Streak</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                      {[
+                        { day: 'Mon', done: 4, total: 4 },
+                        { day: 'Tue', done: 4, total: 4 },
+                        { day: 'Wed', done: 3, total: 4 },
+                        { day: 'Thu', done: 4, total: 4 },
+                        { day: 'Fri', done: 4, total: 4 },
+                        { day: 'Sat', done: 3, total: 4 },
+                        { day: 'Sun', done: completedExerciseIds.length, total: clientExercises.length },
+                      ].map((d, i) => {
+                        const pct = Math.round((d.done / d.total) * 100)
+                        const isToday = i === 6
+                        const full = pct === 100
+                        return (
+                          <div key={d.day} style={{ background: isToday ? '#eff6ff' : '#f8fafc', borderRadius: '14px', padding: '14px 8px', textAlign: 'center', border: isToday ? '2px solid #2563eb' : '1.5px solid #e2e8f0', position: 'relative' }}>
+                            {isToday && <div style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', background: '#2563eb', color: '#fff', padding: '1px 8px', borderRadius: '50px', fontSize: '0.6rem', fontWeight: 800 }}>TODAY</div>}
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, marginBottom: '8px' }}>{d.day}</div>
+                            <svg width="36" height="36" viewBox="0 0 36 36">
+                              <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" strokeWidth="3.5" />
+                              <circle cx="18" cy="18" r="15" fill="none" stroke={full ? '#16a34a' : '#2563eb'} strokeWidth="3.5" strokeDasharray={`${2 * Math.PI * 15}`} strokeDashoffset={`${2 * Math.PI * 15 * (1 - pct / 100)}`} strokeLinecap="round" transform="rotate(-90 18 18)" />
+                              {full ? <text x="18" y="22" textAnchor="middle" fontSize="12" fill="#16a34a">✓</text> : <text x="18" y="22" textAnchor="middle" fontSize="9" fontWeight="800" fill="#0f172a">{pct}%</text>}
+                            </svg>
+                            <div style={{ fontSize: '0.65rem', color: full ? '#16a34a' : '#64748b', fontWeight: 700, marginTop: '6px' }}>{d.done}/{d.total}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Today's Progress Summary */}
+                  <div className="bento-card col-span-5" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>Today's Progress</h3>
+                      <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>Track your daily exercise completion</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '16px 0' }}>
+                      <svg width="100" height="100" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" strokeWidth="8" />
+                        <circle cx="50" cy="50" r="42" fill="none" stroke={completedExerciseIds.length === clientExercises.length ? '#16a34a' : '#0f52ba'} strokeWidth="8" strokeDasharray={`${2 * Math.PI * 42}`} strokeDashoffset={`${2 * Math.PI * 42 * (1 - completedExerciseIds.length / clientExercises.length)}`} strokeLinecap="round" transform="rotate(-90 50 50)" style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
+                        <text x="50" y="46" textAnchor="middle" fontSize="20" fontWeight="900" fill="#0f172a">{Math.round((completedExerciseIds.length / clientExercises.length) * 100)}%</text>
+                        <text x="50" y="62" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="600">Complete</text>
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{completedExerciseIds.length}<span style={{ fontSize: '1rem', color: '#64748b' }}>/{clientExercises.length}</span></div>
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>exercises done</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: completedExerciseIds.length === clientExercises.length ? '#16a34a' : '#0f52ba', marginTop: '8px' }}>{completedExerciseIds.length === clientExercises.length ? '🎉 All Done!' : `${clientExercises.length - completedExerciseIds.length} remaining`}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      {[
+                        { label: 'Avg / Day', value: '3.7', color: '#0f52ba', bg: '#eff6ff' },
+                        { label: 'Best Day', value: '4/4', color: '#16a34a', bg: '#f0fdf4' },
+                        { label: 'Total Reps', value: '280', color: '#7c3aed', bg: '#f5f3ff' },
+                      ].map(s => (
+                        <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '10px', textAlign: 'center', border: `1px solid ${s.color}22` }}>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 900, color: s.color }}>{s.value}</div>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase' }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Exercise Grid Cards */}
+                  {clientExercises.map((ex) => {
+                    const isDone = completedExerciseIds.includes(ex.id)
+                    return (
+                      <div
+                        key={ex.id}
+                        className="bento-card col-span-6"
+                        style={{
+                          background: isDone ? 'linear-gradient(180deg,#f0fdf4 0%, #ffffff 100%)' : '#ffffff',
+                          border: `1.5px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}`,
+                          borderRadius: '20px',
+                          padding: '24px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justify: 'space-between',
+                          gap: '16px',
+                          transition: 'all 0.25s ease',
+                          boxShadow: isDone ? '0 4px 20px rgba(34,197,94,0.08)' : '0 2px 12px rgba(15,23,42,0.04)'
+                        }}
+                      >
+                        {/* Top Header Row */}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{
+                                width: '38px', height: '38px', borderRadius: '12px',
+                                background: isDone ? '#dcfce7' : '#eff6ff',
+                                color: isDone ? '#16a34a' : '#0f52ba',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{ex.icon || 'fitness_center'}</span>
+                              </div>
+                              <div>
+                                <span style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  {ex.focus}
+                                </span>
+                                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: isDone ? '#166534' : '#0f172a', margin: '4px 0 0 0' }}>{ex.name}</h3>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ background: '#f1f5f9', color: '#64748b', padding: '4px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                {ex.tag}
+                              </span>
+                              {isDone ? (
+                                <span style={{ background: '#dcfce7', color: '#15803d', borderRadius: '50px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>
+                                  Completed
+                                </span>
+                              ) : (
+                                <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: '50px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>schedule</span>
+                                  Pending
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Exercise Brief Description & Target */}
+                          <p style={{ fontSize: '0.82rem', color: '#475569', margin: '6px 0 12px 0', lineHeight: 1.45 }}>
+                            {ex.description}
+                          </p>
+
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.75rem', color: '#64748b', marginBottom: '14px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#0f52ba' }}>my_location</span>
+                              Target: <strong style={{ color: '#0f172a' }}>{ex.target}</strong>
+                            </span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#0f52ba' }}>timer</span>
+                              Rest: <strong style={{ color: '#0f172a' }}>{ex.rest}</strong>
+                            </span>
+                          </div>
+
+                          {/* Exercise Spec Details Pills */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center', marginBottom: '14px' }}>
+                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
+                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SETS</span>
+                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.sets}</strong>
+                            </div>
+                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
+                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>REPS</span>
+                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.reps}</strong>
+                            </div>
+                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
+                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>EST. TIME</span>
+                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.duration}</strong>
+                            </div>
+                          </div>
+
+                          {/* In-Card Completion Progress Bar */}
+                          <div style={{ marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                              <span>Card Goal Progress</span>
+                              <span style={{ color: isDone ? '#16a34a' : '#0f52ba' }}>{isDone ? '100% Completed' : '0% Completed'}</span>
+                            </div>
+                            <div style={{ background: '#e2e8f0', borderRadius: '50px', height: '6px', overflow: 'hidden' }}>
+                              <div style={{ width: isDone ? '100%' : '0%', height: '100%', background: isDone ? 'linear-gradient(90deg,#16a34a,#22c55e)' : '#0f52ba', transition: 'width 0.4s ease' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => { setSelectedExerciseDetail(ex); setShowExerciseDetailModal(true) }}
+                            style={{
+                              padding: '10px 18px', borderRadius: '50px', border: '1.5px solid #cbd5e1',
+                              background: '#fff', color: '#475569', fontSize: '0.82rem', fontWeight: 700,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>menu_book</span>
+                            View Guide
+                          </button>
+                          <button
+                            onClick={() => toggleExerciseComplete(ex.id)}
+                            style={{
+                              flex: 1, padding: '10px 18px', borderRadius: '50px', border: 'none',
+                              background: isDone ? '#16a34a' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
+                              color: '#fff', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
+                              boxShadow: isDone ? 'none' : '0 4px 14px rgba(15,82,186,0.3)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                              {isDone ? 'check_circle' : 'play_circle'}
+                            </span>
+                            {isDone ? '✓ Completed Today' : 'Mark Completed'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Exercise History Log */}
+                  <div className="bento-card col-span-12" style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Exercise Session History</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your recent daily exercise completion log</p>
+                      </div>
+                      <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>Last 7 Days</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {[
+                        { date: 'Sat, Oct 11', done: 3, total: 4, pain: 2, note: 'Skipped Single-Leg Balance — ankle felt sore' },
+                        { date: 'Fri, Oct 10', done: 4, total: 4, pain: 3, note: 'Full routine completed. Felt strong.' },
+                        { date: 'Thu, Oct 9', done: 4, total: 4, pain: 2, note: 'Great session! Increased heel slide reps to 12.' },
+                        { date: 'Wed, Oct 8', done: 3, total: 4, pain: 4, note: 'Knee swelling — reduced intensity on quad sets.' },
+                        { date: 'Tue, Oct 7', done: 4, total: 4, pain: 3, note: 'All exercises completed on schedule.' },
+                      ].map((log, i) => {
+                        const pct = Math.round((log.done / log.total) * 100)
+                        const full = pct === 100
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ minWidth: '90px' }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>{log.date}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>Pain: {log.pain}/10</div>
+                            </div>
+                            <div style={{ width: '80px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ flex: 1, height: '6px', borderRadius: '50px', background: '#e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: full ? '#16a34a' : '#2563eb', borderRadius: '50px' }} />
+                              </div>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: full ? '#16a34a' : '#2563eb' }}>{log.done}/{log.total}</span>
+                            </div>
+                            <div style={{ flex: 1, fontSize: '0.78rem', color: '#475569', fontStyle: 'italic' }}>"{log.note}"</div>
+                            {full && <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '3px 10px', fontSize: '0.68rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✓ Complete</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PATIENT/ADMIN SETTINGS TAB ── */}
+              {activeTab === 'settings' && (
+                <div className="bento-grid">
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>Account Settings</h2>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 24px 0' }}>Manage your profile, preferences, and account details.</p>
+
+                    {/* Profile Section */}
+                    <div style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Profile Information</h3>
+                      <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900, flexShrink: 0 }}>
+                            {sessionUser.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>{sessionUser.name}</div>
+                            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{sessionUser.email}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#0f52ba', fontWeight: 700, marginTop: '2px' }}>{isClient ? `Patient ID: ${sessionUser.patientId || 'N/A'}` : sessionUser.specialization}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                            <input className="modern-input" defaultValue={sessionUser.name} readOnly />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Email</label>
+                            <input className="modern-input" defaultValue={sessionUser.email} readOnly />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>{isClient ? 'Condition' : 'Facility'}</label>
+                            <input className="modern-input" defaultValue={isClient ? (sessionUser.condition || 'N/A') : (sessionUser.facility || 'N/A')} readOnly />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Phone</label>
+                            <input className="modern-input" defaultValue="+1 (555) 012-3456" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notification Preferences */}
+                    <div style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Notification Preferences</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {(isClient ? [
+                          { label: 'Session Reminders', desc: 'Get notified 1 hour before therapy sessions', on: true },
+                          { label: 'Exercise Reminders', desc: 'Daily reminder for your home exercise program', on: true },
+                          { label: 'Goal Updates', desc: 'Notifications when you reach a milestone', on: true },
+                          { label: 'Therapist Messages', desc: 'Receive notes from your care team', on: true },
+                          { label: 'Weekly Reports', desc: 'Weekly progress summary via email', on: false },
+                        ] : [
+                          { label: 'New Patient Alerts', desc: 'Notifications when new patients are admitted', on: true },
+                          { label: 'Schedule Changes', desc: 'Alerts for session cancellations or reschedules', on: true },
+                          { label: 'Assessment Due', desc: 'Reminders for pending FIM assessments', on: true },
+                          { label: 'Team Messages', desc: 'Messages from clinical staff', on: true },
+                          { label: 'Daily Facility Summary', desc: 'Daily census and session report', on: false },
+                        ]).map(notif => (
+                          <div key={notif.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div>
+                              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>{notif.label}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>{notif.desc}</div>
+                            </div>
+                            <div
+                              onClick={(e) => { const el = e.currentTarget; el.dataset.on = el.dataset.on === 'true' ? 'false' : 'true'; el.style.background = el.dataset.on === 'true' ? '#0f52ba' : '#cbd5e1'; el.querySelector('div').style.transform = el.dataset.on === 'true' ? 'translateX(18px)' : 'translateX(0)' }}
+                              data-on={notif.on ? 'true' : 'false'}
+                              style={{ width: '42px', height: '24px', borderRadius: '50px', background: notif.on ? '#0f52ba' : '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: notif.on ? 'translateX(18px)' : 'translateX(0)' }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Accessibility */}
+                    <div style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Accessibility & Display</h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        {[
+                          { icon: 'text_increase', label: 'Large Text', desc: 'Increase font size across the app' },
+                          { icon: 'contrast', label: 'High Contrast', desc: 'Enhance color contrast for readability' },
+                          { icon: 'dark_mode', label: 'Dark Mode', desc: 'Switch to dark color scheme' },
+                          { icon: 'volume_up', label: 'Sound Effects', desc: 'Enable completion sounds' },
+                        ].map(opt => (
+                          <div key={opt.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#0f52ba' }}>{opt.icon}</span>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{opt.desc}</div>
+                            </div>
+                            <div
+                              onClick={(e) => { const el = e.currentTarget; el.dataset.on = el.dataset.on === 'true' ? 'false' : 'true'; el.style.background = el.dataset.on === 'true' ? '#0f52ba' : '#cbd5e1'; el.querySelector('div').style.transform = el.dataset.on === 'true' ? 'translateX(18px)' : 'translateX(0)' }}
+                              data-on="false"
+                              style={{ width: '42px', height: '24px', borderRadius: '50px', background: '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: 'translateX(0)' }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Privacy & Security */}
+                    <div style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Privacy & Security</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {[
+                          { icon: 'lock', label: 'Change Password', desc: 'Update your account password' },
+                          { icon: 'security', label: 'Two-Factor Authentication', desc: 'Add an extra layer of security' },
+                          { icon: 'download', label: 'Download My Data', desc: isClient ? 'Export your health records and exercise history' : 'Export patient data and facility reports' },
+                        ].map(sec => (
+                          <div key={sec.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#7c3aed' }}>{sec.icon}</span>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{sec.label}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{sec.desc}</div>
+                            </div>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#cbd5e1' }}>chevron_right</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Danger Zone</h3>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={handleSignOut} style={{ padding: '10px 22px', borderRadius: '50px', border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>logout</span> Sign Out
+                        </button>
+                        <button onClick={() => alert('Account deletion requires verification. Contact your care team.')} style={{ padding: '10px 22px', borderRadius: '50px', border: '1.5px solid #fecaca', background: '#fff', color: '#dc2626', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Delete Account</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -996,7 +2342,28 @@ function App() {
                         <h3>Recent Patient Directory</h3>
                         <p>Monitor patient status, assigned therapists, and FIM scores</p>
                       </div>
-                      <button className="text-button" onClick={() => setActiveTab('patients')}>View All Patients</button>
+                      <button
+                        className="btn-view-all-modern"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 22px',
+                          borderRadius: '50px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #0f52ba 0%, #00b4d8 100%)',
+                          color: '#ffffff',
+                          fontSize: '0.9rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 16px rgba(15, 82, 186, 0.4)'
+                        }}
+                        onClick={() => setActiveTab('patients')}
+                      >
+                        <span className="material-symbols-outlined">groups</span>
+                        <span>View All Patients</span>
+                        <span className="material-symbols-outlined">arrow_forward</span>
+                      </button>
                     </div>
 
                     <div className="table-responsive">
@@ -1009,6 +2376,7 @@ function App() {
                             <th>Assigned Therapist</th>
                             <th>Status</th>
                             <th>FIM Score</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1024,6 +2392,33 @@ function App() {
                                 </span>
                               </td>
                               <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{pt.score}</td>
+                              <td>
+                                <button
+                                  className="btn-action-assess"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 16px',
+                                    borderRadius: '50px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #0f52ba 0%, #2563eb 100%)',
+                                    color: '#ffffff',
+                                    fontSize: '0.82rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 3px 12px rgba(15, 82, 186, 0.35)',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onClick={() => {
+                                    setSelectedPatientId(pt.id)
+                                    setActiveTab('assessment')
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>assignment</span>
+                                  <span>Assess FIM</span>
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1101,13 +2496,29 @@ function App() {
                             <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{pt.score}</td>
                             <td>
                               <button
-                                className="text-button"
+                                className="btn-action-assess"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '8px 16px',
+                                  borderRadius: '50px',
+                                  border: 'none',
+                                  background: 'linear-gradient(135deg, #0f52ba 0%, #2563eb 100%)',
+                                  color: '#ffffff',
+                                  fontSize: '0.82rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 3px 12px rgba(15, 82, 186, 0.35)',
+                                  whiteSpace: 'nowrap'
+                                }}
                                 onClick={() => {
                                   setSelectedPatientId(pt.id)
                                   setActiveTab('assessment')
                                 }}
                               >
-                                Assess FIM
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>assignment</span>
+                                <span>Assess FIM</span>
                               </button>
                             </td>
                           </tr>
@@ -1121,6 +2532,76 @@ function App() {
               {/* TAB 3: COMPREHENSIVE FIM & ASSESSMENT STUDIO */}
               {activeTab === 'assessment' && (
                 <div className="animate-fade-in">
+
+                  {/* Evaluation Complete Modal */}
+                  {showEvalModal && (
+                    <div className="eval-modal-overlay" onClick={() => setShowEvalModal(false)}>
+                      <div className="eval-modal-card" onClick={(e) => e.stopPropagation()}>
+                        {/* Success icon */}
+                        <div className="eval-modal-icon-ring">
+                          <span className="material-symbols-outlined">verified</span>
+                        </div>
+
+                        <div className="eval-modal-badge">Evaluation Complete</div>
+                        <h2 className="eval-modal-title">Assessment Finalised</h2>
+                        <p className="eval-modal-patient">{currentPatient.name} &nbsp;·&nbsp; {currentPatient.id}</p>
+                        <p className="eval-modal-diagnosis">{currentPatient.diagnosis}</p>
+
+                        {/* Score tiles */}
+                        <div className="eval-modal-scores">
+                          <div className="eval-score-tile">
+                            <span className="eval-score-val">{totalFimScore}<span className="eval-score-denom">/126</span></span>
+                            <span className="eval-score-lbl">Total FIM Score</span>
+                          </div>
+                          <div className="eval-score-tile">
+                            <span className="eval-score-val">{motorSubscore}<span className="eval-score-denom">/91</span></span>
+                            <span className="eval-score-lbl">Motor Domain</span>
+                          </div>
+                          <div className="eval-score-tile">
+                            <span className="eval-score-val">{cognitiveSubscore}<span className="eval-score-denom">/35</span></span>
+                            <span className="eval-score-lbl">Cognitive Domain</span>
+                          </div>
+                        </div>
+
+                        {/* Classification chip */}
+                        <div className={`eval-modal-class-chip ${
+                          totalFimScore >= 90 ? 'chip-green' : totalFimScore >= 60 ? 'chip-amber' : 'chip-red'
+                        }`}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                            {totalFimScore >= 90 ? 'trending_up' : totalFimScore >= 60 ? 'trending_flat' : 'trending_down'}
+                          </span>
+                          {totalFimScore >= 90 ? 'Modified Independence' : totalFimScore >= 60 ? 'Moderate Dependence' : 'Complete Dependence'}
+                        </div>
+
+                        <p className="eval-modal-meta">
+                          Evaluated by &nbsp;<strong>{sessionUser.name}</strong>&nbsp; on &nbsp;<strong>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                        </p>
+
+                        {/* Action buttons */}
+                        <div className="eval-modal-actions">
+                          <button
+                            className="eval-modal-btn-print"
+                            onClick={() => { setShowEvalModal(false); window.print() }}
+                          >
+                            <span className="material-symbols-outlined">print</span>
+                            Print Report
+                          </button>
+                          <button
+                            className="eval-modal-btn-close"
+                            onClick={() => { setShowEvalModal(false); setActiveTab('patients') }}
+                          >
+                            <span className="material-symbols-outlined">arrow_forward</span>
+                            Back to Directory
+                          </button>
+                        </div>
+
+                        {/* Close X */}
+                        <button className="eval-modal-x" onClick={() => setShowEvalModal(false)}>
+                          <span className="material-symbols-outlined">close</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {/* Assessment Patient Context Bar */}
                   <div className="bento-card" style={{ marginBottom: '20px', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -1138,426 +2619,722 @@ function App() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <select
-                          className="modern-select"
-                          style={{ width: '220px', padding: '8px 12px' }}
+                        <CustomSelect
+                          name="selectedPatient"
+                          style={{ width: '240px' }}
                           value={selectedPatientId}
                           onChange={(e) => setSelectedPatientId(e.target.value)}
-                        >
-                          {adminPatients.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
-                          ))}
-                        </select>
+                          options={adminPatients.map((p) => ({ value: p.id, label: `${p.name} (${p.id})` }))}
+                        />
 
-                        <button className="btn-signout" onClick={() => alert('Assessment Draft Saved!')}>
-                          <span className="material-symbols-outlined">save</span>
-                          Save Draft
-                        </button>
+                         <button className={`btn-signout ${evalDraftSaved ? 'draft-saved' : ''}`} onClick={handleSaveDraft}>
+                           <span className="material-symbols-outlined">{evalDraftSaved ? 'check' : 'save'}</span>
+                           {evalDraftSaved ? 'Saved!' : 'Save Draft'}
+                         </button>
 
-                        <button className="modern-submit-btn" style={{ width: 'auto', padding: '8px 16px', marginTop: 0 }} onClick={() => alert(`Assessment Completed for ${currentPatient.name}! Final Score: ${totalFimScore}/126`)}>
-                          <span className="material-symbols-outlined">check_circle</span>
-                          Complete Evaluation
-                        </button>
+                         <button className="btn-signout" onClick={handlePrintAssessment} title="Print Assessment">
+                           <span className="material-symbols-outlined">print</span>
+                           Print
+                         </button>
+
+                         <button className="modern-submit-btn" style={{ width: 'auto', padding: '8px 16px', marginTop: 0 }} onClick={() => setShowEvalModal(true)}>
+                           <span className="material-symbols-outlined">check_circle</span>
+                           Complete Evaluation
+                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stepper Header */}
+                  {/* Stepper Header (Clickable Step Tabs) */}
                   <div className="assessment-stepper-bar">
-                    <div className="stepper-step-item completed">
-                      <div className="step-bubble">✓</div>
+                    <div
+                      className={`stepper-step-item ${assessmentStep > 1 ? 'completed' : ''} ${assessmentStep === 1 ? 'active' : ''}`}
+                      onClick={() => setAssessmentStep(1)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="step-bubble">{assessmentStep > 1 ? '✓' : '1'}</div>
                       <span className="step-label">1. Vitals & Medical History</span>
                     </div>
 
-                    <div className="stepper-step-item active">
-                      <div className="step-bubble">2</div>
+                    <div
+                      className={`stepper-step-item ${assessmentStep > 2 ? 'completed' : ''} ${assessmentStep === 2 ? 'active' : ''}`}
+                      onClick={() => setAssessmentStep(2)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="step-bubble">{assessmentStep > 2 ? '✓' : '2'}</div>
                       <span className="step-label">2. Functional Independence (FIM)</span>
                     </div>
 
-                    <div className="stepper-step-item">
-                      <div className="step-bubble">3</div>
+                    <div
+                      className={`stepper-step-item ${assessmentStep > 3 ? 'completed' : ''} ${assessmentStep === 3 ? 'active' : ''}`}
+                      onClick={() => setAssessmentStep(3)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="step-bubble">{assessmentStep > 3 ? '✓' : '3'}</div>
                       <span className="step-label">3. Musculoskeletal & ROM</span>
                     </div>
 
-                    <div className="stepper-step-item">
+                    <div
+                      className={`stepper-step-item ${assessmentStep === 4 ? 'active' : ''}`}
+                      onClick={() => setAssessmentStep(4)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="step-bubble">4</div>
                       <span className="step-label">4. Goals & Discharge Plan</span>
                     </div>
                   </div>
 
-                  {/* FIM Live Score Banner Card */}
-                  <div className="fim-score-hero-card">
-                    <div>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8' }}>
-                        Functional Independence Measure (FIM) Score Studio
-                      </span>
-                      <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px' }}>
-                        Live Calculated Assessment: <span style={{ color: '#38bdf8' }}>{totalFimScore} / 126</span>
-                      </h3>
-                      <p style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '4px' }}>
-                        Motor Subscore: <strong>{motorSubscore} / 91</strong> | Cognitive Subscore: <strong>{cognitiveSubscore} / 35</strong>
-                      </p>
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="fim-score-number">{totalFimScore} <span style={{ fontSize: '1.2rem', color: '#94a3b8' }}>/ 126</span></div>
-                      <span style={{ background: totalFimScore >= 90 ? '#10b981' : totalFimScore >= 60 ? '#f59e0b' : '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-block', marginTop: '6px' }}>
-                        {totalFimScore >= 90 ? 'Modified Independence' : totalFimScore >= 60 ? 'Moderate Dependence' : 'Complete Dependence'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* FIM Domains Rating Table */}
-                  <div className="bento-grid" style={{ marginBottom: '24px' }}>
-                    <div className="bento-card col-span-8">
-                      <div className="card-header">
+                  {/* ================================================================== */}
+                  {/* STEP 1: VITALS & MEDICAL HISTORY PAGE                              */}
+                  {/* ================================================================== */}
+                  {assessmentStep === 1 && (
+                    <div className="bento-card col-span-12 animate-fade-in" style={{ padding: '28px' }}>
+                      <div className="card-header" style={{ marginBottom: '24px' }}>
                         <div className="card-header-left">
-                          <h3>18-Item FIM Scoring Rating Scale</h3>
-                          <p>Rate patient performance on 1-7 Functional Scale (1 = Total Assist, 7 = Independence)</p>
+                          <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Step 1: Patient Vitals & Clinical History</h3>
+                          <p>Record baseline physiological indicators, intake medical history, allergies, and physical therapy precautions.</p>
                         </div>
                       </div>
 
-                      {/* Domain 1: Self-Care */}
-                      <div style={{ marginBottom: '20px' }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingBottom: '4px', borderBottom: '2px solid #e0f2fe' }}>
-                          A. Self-Care Domain
-                        </h4>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>1. Eating</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Utensil management & swallowing</p>
-                          </div>
-                          <div>
+                      {/* Vital Signs Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Blood Pressure (mmHg)</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">favorite</span>
                             <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.eating}
-                              onChange={(e) => handleFimChange('eating', e.target.value)}
+                              type="text"
+                              className="modern-input"
+                              value={vitalsHistory.bp}
+                              onChange={(e) => setVitalsHistory((p) => ({ ...p, bp: e.target.value }))}
+                              placeholder="120/80"
                             />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.eating)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.eating} onChange={(e) => handleFimChange('eating', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>2. Grooming</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Washing hands/face, teeth brushing</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.grooming}
-                              onChange={(e) => handleFimChange('grooming', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.grooming)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.grooming} onChange={(e) => handleFimChange('grooming', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>3. Bathing</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Washing body neck-down</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.bathing}
-                              onChange={(e) => handleFimChange('bathing', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.bathing)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.bathing} onChange={(e) => handleFimChange('bathing', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>4. Dressing Upper Body</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Shirt, pullover, prosthesis</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.dressingUpper}
-                              onChange={(e) => handleFimChange('dressingUpper', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.dressingUpper)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.dressingUpper} onChange={(e) => handleFimChange('dressingUpper', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>5. Dressing Lower Body</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Pants, socks, shoes</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.dressingLower}
-                              onChange={(e) => handleFimChange('dressingLower', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.dressingLower)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.dressingLower} onChange={(e) => handleFimChange('dressingLower', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Domain 2: Transfers & Mobility */}
-                      <div style={{ marginBottom: '20px' }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingBottom: '4px', borderBottom: '2px solid #e0f2fe' }}>
-                          B. Transfers & Mobility Domain
-                        </h4>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>6. Bed / Chair / Wheelchair Transfer</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Sit-to-stand, wheelchair transfer</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.transfersBed}
-                              onChange={(e) => handleFimChange('transfersBed', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.transfersBed)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.transfersBed} onChange={(e) => handleFimChange('transfersBed', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>7. Toilet Transfer</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>On & off commode</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.transfersToilet}
-                              onChange={(e) => handleFimChange('transfersToilet', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.transfersToilet)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.transfersToilet} onChange={(e) => handleFimChange('transfersToilet', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>8. Locomotion: Walk / Wheelchair</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>50 meters level surface</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.locomotionWalk}
-                              onChange={(e) => handleFimChange('locomotionWalk', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.locomotionWalk)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.locomotionWalk} onChange={(e) => handleFimChange('locomotionWalk', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Domain 3: Cognition & Communication */}
-                      <div>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingBottom: '4px', borderBottom: '2px solid #e0f2fe' }}>
-                          C. Cognitive & Communication Domain
-                        </h4>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>9. Comprehension</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Auditory / visual understanding</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.comprehension}
-                              onChange={(e) => handleFimChange('comprehension', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.comprehension)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.comprehension} onChange={(e) => handleFimChange('comprehension', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="fim-item-row">
-                          <div>
-                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>10. Problem Solving</strong>
-                            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Daily decision making & safety</p>
-                          </div>
-                          <div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="7"
-                              className="fim-range-slider"
-                              value={fimScores.problemSolving}
-                              onChange={(e) => handleFimChange('problemSolving', e.target.value)}
-                            />
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.problemSolving)}</span>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <select className="modern-select" style={{ padding: '4px 8px', fontSize: '0.85rem' }} value={fimScores.problemSolving} onChange={(e) => handleFimChange('problemSolving', e.target.value)}>
-                              {[1, 2, 3, 4, 5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Musculoskeletal ROM & Treatment Goals */}
-                    <div className="col-span-4" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* ROM & Pain Score Card */}
-                      <div className="bento-card">
-                        <div className="card-header">
-                          <div className="card-header-left">
-                            <h3>Musculoskeletal & ROM</h3>
-                            <p>Active Range of Motion & Pain Rating</p>
-                          </div>
-                        </div>
-
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                          <label>Active Knee Flexion Angle (°): <strong>{romAssessment.kneeFlexion}°</strong></label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="150"
-                            className="fim-range-slider"
-                            value={romAssessment.kneeFlexion}
-                            onChange={(e) => setRomAssessment((prev) => ({ ...prev, kneeFlexion: Number(e.target.value) }))}
-                          />
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-                            <span>0° (Extension)</span>
-                            <span>120° (Goal)</span>
-                            <span>150° (Full)</span>
                           </div>
                         </div>
 
                         <div className="form-group">
-                          <label>Current Pain Level (0-10 Scale): <strong>{romAssessment.painScore} / 10</strong></label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="10"
-                            className="fim-range-slider"
-                            style={{ accentColor: romAssessment.painScore > 6 ? '#ef4444' : '#f59e0b' }}
-                            value={romAssessment.painScore}
-                            onChange={(e) => setRomAssessment((prev) => ({ ...prev, painScore: Number(e.target.value) }))}
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Heart Rate (bpm)</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">pulse_alert</span>
+                            <input
+                              type="text"
+                              className="modern-input"
+                              value={vitalsHistory.hr}
+                              onChange={(e) => setVitalsHistory((p) => ({ ...p, hr: e.target.value }))}
+                              placeholder="74"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Respiratory Rate (br/min)</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">air</span>
+                            <input
+                              type="text"
+                              className="modern-input"
+                              value={vitalsHistory.rr}
+                              onChange={(e) => setVitalsHistory((p) => ({ ...p, rr: e.target.value }))}
+                              placeholder="16"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>SpO2 Oxygen (%)</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">vital_signs</span>
+                            <input
+                              type="text"
+                              className="modern-input"
+                              value={vitalsHistory.spo2}
+                              onChange={(e) => setVitalsHistory((p) => ({ ...p, spo2: e.target.value }))}
+                              placeholder="98"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Temperature (°F)</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">device_thermostat</span>
+                            <input
+                              type="text"
+                              className="modern-input"
+                              value={vitalsHistory.temp}
+                              onChange={(e) => setVitalsHistory((p) => ({ ...p, temp: e.target.value }))}
+                              placeholder="98.6"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Text inputs grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Past Medical History & Primary Diagnosis Notes</label>
+                          <textarea
+                            className="modern-select no-icon"
+                            rows="4"
+                            style={{ fontSize: '0.85rem', lineHeight: '1.5' }}
+                            value={vitalsHistory.medicalHistory}
+                            onChange={(e) => setVitalsHistory((p) => ({ ...p, medicalHistory: e.target.value }))}
                           />
-                          <span style={{ fontSize: '0.78rem', color: romAssessment.painScore > 6 ? '#dc2626' : '#059669', fontWeight: 600, marginTop: '4px' }}>
-                            {romAssessment.painScore <= 3 ? 'Mild Pain (Controlled)' : romAssessment.painScore <= 6 ? 'Moderate Pain (Monitored)' : 'Severe Pain (Requires Review)'}
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Known Allergies & Clinical Contraindications</label>
+                          <textarea
+                            className="modern-select no-icon"
+                            rows="4"
+                            style={{ fontSize: '0.85rem', lineHeight: '1.5' }}
+                            value={vitalsHistory.allergies}
+                            onChange={(e) => setVitalsHistory((p) => ({ ...p, allergies: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Physical Therapy Precautions & Mobility Restrictions</label>
+                        <textarea
+                          className="modern-select no-icon"
+                          rows="3"
+                          style={{ fontSize: '0.85rem', lineHeight: '1.5' }}
+                          value={vitalsHistory.precautions}
+                          onChange={(e) => setVitalsHistory((p) => ({ ...p, precautions: e.target.value }))}
+                        />
+                      </div>
+
+                      {/* Step 1 Footer Navigation */}
+                      <div className="form-step-nav-bar">
+                        <div />
+                        <button className="modern-submit-btn" style={{ width: 'auto', padding: '10px 24px', marginTop: 0 }} onClick={() => setAssessmentStep(2)}>
+                          <span>Next: Functional Independence (FIM)</span>
+                          <span className="material-symbols-outlined">arrow_forward</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ================================================================== */}
+                  {/* STEP 2: FUNCTIONAL INDEPENDENCE (FIM) PAGE                        */}
+                  {/* ================================================================== */}
+                  {assessmentStep === 2 && (
+                    <div className="animate-fade-in">
+                      {/* FIM Live Score Banner Card */}
+                      <div className="fim-score-hero-card">
+                        <div>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8' }}>
+                            Functional Independence Measure (FIM) Score Studio
+                          </span>
+                          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px' }}>
+                            Live Calculated Assessment: <span style={{ color: '#38bdf8' }}>{totalFimScore} / 126</span>
+                          </h3>
+                          <p style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '4px' }}>
+                            Motor Subscore: <strong>{motorSubscore} / 91</strong> | Cognitive Subscore: <strong>{cognitiveSubscore} / 35</strong>
+                          </p>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="fim-score-number">{totalFimScore} <span style={{ fontSize: '1.2rem', color: '#94a3b8' }}>/ 126</span></div>
+                          <span style={{ background: totalFimScore >= 90 ? '#10b981' : totalFimScore >= 60 ? '#f59e0b' : '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-block', marginTop: '6px' }}>
+                            {totalFimScore >= 90 ? 'Modified Independence' : totalFimScore >= 60 ? 'Moderate Dependence' : 'Complete Dependence'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Goals & Clinical Notes Editor Card */}
-                      <div className="bento-card" style={{ flex: 1 }}>
-                        <div className="card-header">
+                      {/* FIM Domains Rating Table */}
+                      <div className="bento-card col-span-12" style={{ marginBottom: '24px', padding: '28px' }}>
+                        <div className="card-header" style={{ marginBottom: '20px' }}>
                           <div className="card-header-left">
-                            <h3>Treatment Plan Goals</h3>
-                            <p>Formulate rehabilitation milestones</p>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Step 2: 18-Item FIM Scoring Rating Scale</h3>
+                            <p>Rate patient functional performance across Self-Care, Mobility, and Cognitive domains (1 = Total Assist, 7 = Complete Independence)</p>
                           </div>
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: '14px' }}>
-                          <label>Short-Term Goal (2 Weeks)</label>
+                        {/* Domain 1: Self-Care */}
+                        <div style={{ marginBottom: '28px' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '6px', borderBottom: '2px solid #e0f2fe' }}>
+                            A. Self-Care Domain
+                          </h4>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>1. Eating</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Utensil management & swallowing</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.eating}
+                                onChange={(e) => handleFimChange('eating', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.eating)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="eating" value={fimScores.eating} onChange={(e) => handleFimChange('eating', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>2. Grooming</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Washing hands/face, teeth brushing</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.grooming}
+                                onChange={(e) => handleFimChange('grooming', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.grooming)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="grooming" value={fimScores.grooming} onChange={(e) => handleFimChange('grooming', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>3. Bathing</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Washing body neck-down</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.bathing}
+                                onChange={(e) => handleFimChange('bathing', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.bathing)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="bathing" value={fimScores.bathing} onChange={(e) => handleFimChange('bathing', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>4. Dressing Upper Body</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Shirt, pullover, prosthesis</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.dressingUpper}
+                                onChange={(e) => handleFimChange('dressingUpper', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.dressingUpper)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="dressingUpper" value={fimScores.dressingUpper} onChange={(e) => handleFimChange('dressingUpper', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>5. Dressing Lower Body</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Pants, socks, shoes</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.dressingLower}
+                                onChange={(e) => handleFimChange('dressingLower', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.dressingLower)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="dressingLower" value={fimScores.dressingLower} onChange={(e) => handleFimChange('dressingLower', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Domain 2: Transfers & Mobility */}
+                        <div style={{ marginBottom: '28px' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '6px', borderBottom: '2px solid #e0f2fe' }}>
+                            B. Transfers & Mobility Domain
+                          </h4>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>6. Bed / Chair / Wheelchair Transfer</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Sit-to-stand, wheelchair transfer</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.transfersBed}
+                                onChange={(e) => handleFimChange('transfersBed', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.transfersBed)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="transfersBed" value={fimScores.transfersBed} onChange={(e) => handleFimChange('transfersBed', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>7. Toilet Transfer</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>On & off commode</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.transfersToilet}
+                                onChange={(e) => handleFimChange('transfersToilet', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.transfersToilet)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="transfersToilet" value={fimScores.transfersToilet} onChange={(e) => handleFimChange('transfersToilet', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>8. Locomotion: Walk / Wheelchair</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>50 meters level surface</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.locomotionWalk}
+                                onChange={(e) => handleFimChange('locomotionWalk', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.locomotionWalk)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="locomotionWalk" value={fimScores.locomotionWalk} onChange={(e) => handleFimChange('locomotionWalk', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Domain 3: Cognition & Communication */}
+                        <div>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '6px', borderBottom: '2px solid #e0f2fe' }}>
+                            C. Cognitive & Communication Domain
+                          </h4>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>9. Comprehension</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Auditory / visual understanding</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.comprehension}
+                                onChange={(e) => handleFimChange('comprehension', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.comprehension)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="comprehension" value={fimScores.comprehension} onChange={(e) => handleFimChange('comprehension', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+
+                          <div className="fim-item-row">
+                            <div>
+                              <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>10. Problem Solving</strong>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Daily decision making & safety</p>
+                            </div>
+                            <div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="7"
+                                className="fim-range-slider"
+                                value={fimScores.problemSolving}
+                                onChange={(e) => handleFimChange('problemSolving', e.target.value)}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{getFimDescription(fimScores.problemSolving)}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <CustomSelect name="problemSolving" value={fimScores.problemSolving} onChange={(e) => handleFimChange('problemSolving', e.target.value)} options={[1,2,3,4,5,6,7].map(s=>({value:s,label:`${s}`}))} style={{ minWidth: '90px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 2 Footer Navigation */}
+                        <div className="form-step-nav-bar">
+                          <button className="btn-signout" onClick={() => setAssessmentStep(1)}>
+                            <span className="material-symbols-outlined">arrow_back</span>
+                            <span>Back: Vitals & History</span>
+                          </button>
+                          <button className="modern-submit-btn" style={{ width: 'auto', padding: '10px 24px', marginTop: 0 }} onClick={() => setAssessmentStep(3)}>
+                            <span>Next: Musculoskeletal & ROM</span>
+                            <span className="material-symbols-outlined">arrow_forward</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ================================================================== */}
+                  {/* STEP 3: MUSCULOSKELETAL & ROM PAGE                                */}
+                  {/* ================================================================== */}
+                  {assessmentStep === 3 && (
+                    <div className="bento-card col-span-12 animate-fade-in" style={{ padding: '28px' }}>
+                      <div className="card-header" style={{ marginBottom: '24px' }}>
+                        <div className="card-header-left">
+                          <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Step 3: Musculoskeletal & Range of Motion (ROM)</h3>
+                          <p>Measure joint angles, manual muscle strength (MMT), pain levels, and physical edema ratings.</p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+                        {/* Knee & Hip Flexion */}
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px' }}>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f52ba', marginBottom: '16px' }}>Joint Range of Motion</h4>
+
+                          <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Active Knee Flexion Angle (°): <strong>{romAssessment.kneeFlexion}°</strong></label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="150"
+                              className="fim-range-slider"
+                              value={romAssessment.kneeFlexion}
+                              onChange={(e) => setRomAssessment((prev) => ({ ...prev, kneeFlexion: Number(e.target.value) }))}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                              <span>0° (Extension)</span>
+                              <span>120° (Goal)</span>
+                              <span>150° (Full)</span>
+                            </div>
+                          </div>
+
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Hip Flexion Angle (°)</label>
+                            <div className="input-with-icon">
+                              <span className="material-symbols-outlined">accessibility_new</span>
+                              <input
+                                type="text"
+                                className="modern-input"
+                                value={romAssessment.hipFlexion}
+                                onChange={(e) => setRomAssessment((p) => ({ ...p, hipFlexion: e.target.value }))}
+                                placeholder="e.g. 105°"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* MMT & Pain Score Card */}
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px' }}>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f52ba', marginBottom: '16px' }}>Muscle Strength & Pain Assessment</h4>
+
+                          <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Current Pain Level (0-10 Scale): <strong>{romAssessment.painScore} / 10</strong></label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="10"
+                              className="fim-range-slider"
+                              style={{ accentColor: romAssessment.painScore > 6 ? '#ef4444' : '#f59e0b' }}
+                              value={romAssessment.painScore}
+                              onChange={(e) => setRomAssessment((prev) => ({ ...prev, painScore: Number(e.target.value) }))}
+                            />
+                            <span style={{ fontSize: '0.78rem', color: romAssessment.painScore > 6 ? '#dc2626' : '#059669', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                              {romAssessment.painScore <= 3 ? 'Mild Pain (Controlled)' : romAssessment.painScore <= 6 ? 'Moderate Pain (Monitored)' : 'Severe Pain (Requires Review)'}
+                            </span>
+                          </div>
+
+                          <div className="form-group">
+                            <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Manual Muscle Testing (MMT Grade)</label>
+                            <div className="input-with-icon">
+                              <span className="material-symbols-outlined">fitness_center</span>
+                              <input
+                                type="text"
+                                className="modern-input"
+                                value={romAssessment.mmtScore}
+                                onChange={(e) => setRomAssessment((p) => ({ ...p, mmtScore: e.target.value }))}
+                                placeholder="e.g. 4/5 (Good)"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pain Location & Edema */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Pain Location & Characteristics</label>
                           <textarea
                             className="modern-select no-icon"
-                            rows="2"
-                            style={{ minHeight: '60px', fontSize: '0.85rem' }}
+                            rows="3"
+                            style={{ fontSize: '0.85rem' }}
+                            value={romAssessment.painLocation}
+                            onChange={(e) => setRomAssessment((p) => ({ ...p, painLocation: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Edema & Swelling Observation</label>
+                          <textarea
+                            className="modern-select no-icon"
+                            rows="3"
+                            style={{ fontSize: '0.85rem' }}
+                            value={romAssessment.edema}
+                            onChange={(e) => setRomAssessment((p) => ({ ...p, edema: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Step 3 Footer Navigation */}
+                      <div className="form-step-nav-bar">
+                        <button className="btn-signout" onClick={() => setAssessmentStep(2)}>
+                          <span className="material-symbols-outlined">arrow_back</span>
+                          <span>Back: FIM Scores</span>
+                        </button>
+                        <button className="modern-submit-btn" style={{ width: 'auto', padding: '10px 24px', marginTop: 0 }} onClick={() => setAssessmentStep(4)}>
+                          <span>Next: Goals & Discharge Plan</span>
+                          <span className="material-symbols-outlined">arrow_forward</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ================================================================== */}
+                  {/* STEP 4: GOALS & DISCHARGE PLAN PAGE                                */}
+                  {/* ================================================================== */}
+                  {assessmentStep === 4 && (
+                    <div className="bento-card col-span-12 animate-fade-in" style={{ padding: '28px' }}>
+                      <div className="card-header" style={{ marginBottom: '24px' }}>
+                        <div className="card-header-left">
+                          <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Step 4: Goals & Discharge Plan</h3>
+                          <p>Define short-term and long-term milestones, target discharge destination, and clinical physiatrist summary.</p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Short-Term Goal (2 Weeks)</label>
+                          <textarea
+                            className="modern-select no-icon"
+                            rows="3"
+                            style={{ fontSize: '0.85rem' }}
                             value={romAssessment.shortTermGoal}
                             onChange={(e) => setRomAssessment((prev) => ({ ...prev, shortTermGoal: e.target.value }))}
                           />
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: '14px' }}>
-                          <label>Long-Term Goal (6 Weeks)</label>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Long-Term Goal (6 Weeks)</label>
                           <textarea
                             className="modern-select no-icon"
-                            rows="2"
-                            style={{ minHeight: '60px', fontSize: '0.85rem' }}
+                            rows="3"
+                            style={{ fontSize: '0.85rem' }}
                             value={romAssessment.longTermGoal}
                             onChange={(e) => setRomAssessment((prev) => ({ ...prev, longTermGoal: e.target.value }))}
                           />
                         </div>
+                      </div>
+
+                      {/* Discharge Details */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Discharge Destination</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">home</span>
+                            <input
+                              type="text"
+                              className="modern-input"
+                              value={dischargePlan.dischargeDestination}
+                              onChange={(e) => setDischargePlan((p) => ({ ...p, dischargeDestination: e.target.value }))}
+                            />
+                          </div>
+                        </div>
 
                         <div className="form-group">
-                          <label>Physiatrist Clinical Notes</label>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700 }}>Target Discharge Date</label>
+                          <div className="input-with-icon">
+                            <span className="material-symbols-outlined">event</span>
+                            <input
+                              type="date"
+                              className="modern-input"
+                              value={dischargePlan.targetDate}
+                              onChange={(e) => setDischargePlan((p) => ({ ...p, targetDate: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Caregiver & Family Support Status</label>
                           <textarea
                             className="modern-select no-icon"
-                            rows="3"
-                            style={{ minHeight: '70px', fontSize: '0.85rem' }}
-                            value={romAssessment.clinicalNotes}
-                            onChange={(e) => setRomAssessment((prev) => ({ ...prev, clinicalNotes: e.target.value }))}
+                            rows="2"
+                            style={{ fontSize: '0.85rem' }}
+                            value={dischargePlan.caregiverSupport}
+                            onChange={(e) => setDischargePlan((p) => ({ ...p, caregiverSupport: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Durable Medical Equipment (DME) Needed</label>
+                          <textarea
+                            className="modern-select no-icon"
+                            rows="2"
+                            style={{ fontSize: '0.85rem' }}
+                            value={dischargePlan.equipmentNeeded}
+                            onChange={(e) => setDischargePlan((p) => ({ ...p, equipmentNeeded: e.target.value }))}
                           />
                         </div>
                       </div>
+
+                      <div className="form-group" style={{ marginBottom: '24px' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 700 }}>Physiatrist Summary & Clinical Notes</label>
+                        <textarea
+                          className="modern-select no-icon"
+                          rows="3"
+                          style={{ fontSize: '0.85rem' }}
+                          value={romAssessment.clinicalNotes}
+                          onChange={(e) => setRomAssessment((prev) => ({ ...prev, clinicalNotes: e.target.value }))}
+                        />
+                      </div>
+
+                      {/* Step 4 Footer Navigation */}
+                      <div className="form-step-nav-bar">
+                        <button className="btn-signout" onClick={() => setAssessmentStep(3)}>
+                          <span className="material-symbols-outlined">arrow_back</span>
+                          <span>Back: Musculoskeletal & ROM</span>
+                        </button>
+                        <button className="modern-submit-btn" style={{ width: 'auto', padding: '10px 28px', marginTop: 0 }} onClick={() => setShowEvalModal(true)}>
+                          <span className="material-symbols-outlined">check_circle</span>
+                          <span>Complete Evaluation</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1652,17 +3429,17 @@ function App() {
                           <label>Admission Status</label>
                           <div className="input-with-icon">
                             <span className="material-symbols-outlined">bed</span>
-                            <select
+                             <CustomSelect
                               name="status"
-                              className="modern-select"
                               value={newPatientForm.status}
                               onChange={handleNewPatientChange}
-                            >
-                              <option value="Inpatient">Inpatient</option>
-                              <option value="Outpatient">Outpatient</option>
-                              <option value="Critical">Critical</option>
-                              <option value="Discharged">Discharged</option>
-                            </select>
+                              options={[
+                                { value: 'Inpatient', label: 'Inpatient' },
+                                { value: 'Outpatient', label: 'Outpatient' },
+                                { value: 'Critical', label: 'Critical' },
+                                { value: 'Discharged', label: 'Discharged' },
+                              ]}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1722,36 +3499,374 @@ function App() {
 
               {/* TAB 4: FACILITY SCHEDULE */}
               {activeTab === 'schedule' && (
-                <div className="bento-card col-span-12">
-                  <div className="card-header">
-                    <div className="card-header-left">
-                      <h3>Full Facility Therapy Schedule</h3>
-                      <p>View practitioner room allocations and daily clinical appointments</p>
-                    </div>
-                    <button className="btn-signout" onClick={() => alert('Filter Schedule...')}>
-                      <span className="material-symbols-outlined">filter_list</span> Filter Schedule
-                    </button>
-                  </div>
+                <div className="col-span-12" style={{ position: 'relative' }}>
 
-                  <div className="timeline-list">
-                    {adminSchedule.map((item, idx) => (
-                      <div key={idx} className="timeline-item-row" style={{ padding: '16px' }}>
-                        <div className="timeline-date-badge" style={{ width: '70px', height: '60px' }}>
-                          <strong style={{ fontSize: '1.25rem' }}>{item.time.split(' ')[0]}</strong>
-                          <span>{item.time.split(' ')[1]}</span>
-                        </div>
-                        <div className="timeline-info" style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{item.title}</h4>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: '#0f52ba', fontWeight: 700 }}>{item.room}</span>
+                  {/* ── Filter Modal Popup ── */}
+                  {showScheduleFilter && createPortal(
+                    <div
+                      style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        width: '100vw', height: '100vh', zIndex: 99999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                        padding: '16px', boxSizing: 'border-box'
+                      }}
+                      onClick={() => setShowScheduleFilter(false)}
+                    >
+                      <div
+                        style={{
+                          background: '#ffffff', borderRadius: '24px', padding: '32px',
+                          width: '100%', maxWidth: '480px', maxHeight: '85vh', overflowY: 'auto',
+                          boxShadow: '0 24px 64px rgba(15,52,186,0.25)',
+                          animation: 'fadeSlideIn 0.25s ease'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                          <div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Filter Schedule</h3>
+                            <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Narrow down sessions by therapist, type, or status</p>
                           </div>
-                          <p style={{ marginTop: '4px' }}>
-                            Patient: <strong>{item.patient}</strong> | Practitioner: <strong>{item.therapist}</strong>
-                          </p>
+                          <button
+                            onClick={() => setShowScheduleFilter(false)}
+                            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>close</span>
+                          </button>
+                        </div>
+
+                        {/* Search */}
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Search Patient / Session</label>
+                          <div style={{ position: 'relative' }}>
+                            <span className="material-symbols-outlined" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', color: '#94a3b8' }}>search</span>
+                            <input
+                              type="text"
+                              placeholder="e.g. Eleanor Vance, Gait Training..."
+                              value={scheduleFilters.search}
+                              onChange={e => setScheduleFilters(f => ({ ...f, search: e.target.value }))}
+                              style={{ width: '100%', padding: '10px 14px 10px 40px', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border 0.15s' }}
+                              onFocus={e => e.target.style.borderColor = '#0f52ba'}
+                              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Therapist Filter */}
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Therapist / Practitioner</label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {uniqueTherapists.map(t => (
+                              <button
+                                key={t}
+                                onClick={() => setScheduleFilters(f => ({ ...f, therapist: t }))}
+                                style={{
+                                  padding: '6px 14px', borderRadius: '50px', border: '1.5px solid',
+                                  borderColor: scheduleFilters.therapist === t ? '#0f52ba' : '#e2e8f0',
+                                  background: scheduleFilters.therapist === t ? 'linear-gradient(135deg,#0f52ba,#2563eb)' : '#f8fafc',
+                                  color: scheduleFilters.therapist === t ? '#fff' : '#374151',
+                                  fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Type Filter */}
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Session Type</label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {uniqueTypes.map(t => (
+                              <button
+                                key={t}
+                                onClick={() => setScheduleFilters(f => ({ ...f, type: t }))}
+                                style={{
+                                  padding: '6px 14px', borderRadius: '50px', border: '1.5px solid',
+                                  borderColor: scheduleFilters.type === t ? '#7c3aed' : '#e2e8f0',
+                                  background: scheduleFilters.type === t ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)' : '#f8fafc',
+                                  color: scheduleFilters.type === t ? '#fff' : '#374151',
+                                  fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div style={{ marginBottom: '28px' }}>
+                          <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Session Status</label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {['All', 'Confirmed', 'Pending', 'Cancelled'].map(s => {
+                              const col = s === 'Confirmed' ? '#16a34a' : s === 'Pending' ? '#d97706' : s === 'Cancelled' ? '#dc2626' : '#0f52ba'
+                              const active = scheduleFilters.status === s
+                              return (
+                                <button
+                                  key={s}
+                                  onClick={() => setScheduleFilters(f => ({ ...f, status: s }))}
+                                  style={{
+                                    padding: '6px 14px', borderRadius: '50px', border: `1.5px solid ${active ? col : '#e2e8f0'}`,
+                                    background: active ? col : '#f8fafc',
+                                    color: active ? '#fff' : '#374151',
+                                    fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s'
+                                  }}
+                                >
+                                  {s}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <button
+                            onClick={() => { setScheduleFilters({ therapist: 'All', type: 'All', status: 'All', search: '' }) }}
+                            style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}
+                          >
+                            Clear All Filters
+                          </button>
+                          <button
+                            onClick={() => setShowScheduleFilter(false)}
+                            style={{ flex: 2, padding: '10px 0', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0f52ba,#00b4d8)', color: '#fff', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 4px 14px rgba(15,82,186,0.3)' }}
+                          >
+                            Apply & View Results ({filteredSchedule.length})
+                          </button>
                         </div>
                       </div>
-                    ))}
+                    </div>,
+                    document.body
+                  )}
+
+                  {/* ── Session Detail Popup ── */}
+                  {showSessionDetail && selectedSession && createPortal(
+                    <div
+                      style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        width: '100vw', height: '100vh', zIndex: 99999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                        padding: '16px', boxSizing: 'border-box'
+                      }}
+                      onClick={() => setShowSessionDetail(false)}
+                    >
+                      <div
+                        style={{
+                          background: '#ffffff', borderRadius: '24px', padding: '0',
+                          width: '100%', maxWidth: '520px', maxHeight: '85vh', overflowY: 'auto',
+                          boxShadow: '0 32px 80px rgba(15,52,186,0.25)',
+                          animation: 'fadeSlideIn 0.25s ease'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {/* Header Banner */}
+                        <div style={{
+                          background: SESSION_TYPE_COLORS[selectedSession.type]?.bg || '#f8fafc',
+                          borderBottom: `3px solid ${SESSION_TYPE_COLORS[selectedSession.type]?.dot || '#0f52ba'}`,
+                          padding: '28px 28px 20px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                            <div>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                background: SESSION_TYPE_COLORS[selectedSession.type]?.dot || '#0f52ba',
+                                color: '#fff', borderRadius: '50px', padding: '4px 12px',
+                                fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '10px'
+                              }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>medical_services</span>
+                                {selectedSession.type}
+                              </span>
+                              <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', lineHeight: 1.3 }}>{selectedSession.title}</h2>
+                            </div>
+                            <button
+                              onClick={() => setShowSessionDetail(false)}
+                              style={{ background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#374151' }}>close</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Details Grid */}
+                        <div style={{ padding: '24px 28px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                            {[
+                              { icon: 'schedule', label: 'Time', value: selectedSession.time },
+                              { icon: 'timelapse', label: 'Duration', value: selectedSession.duration },
+                              { icon: 'person', label: 'Patient', value: selectedSession.patient },
+                              { icon: 'stethoscope', label: 'Practitioner', value: selectedSession.therapist },
+                              { icon: 'meeting_room', label: 'Room / Location', value: selectedSession.room },
+                              { icon: 'check_circle', label: 'Status', value: selectedSession.status },
+                            ].map(({ icon, label, value }) => (
+                              <div key={label} style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>{icon}</span>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+                                </div>
+                                <p style={{
+                                  fontSize: '0.9rem', fontWeight: 700, color:
+                                    value === 'Confirmed' ? '#16a34a' : value === 'Cancelled' ? '#dc2626' : value === 'Pending' ? '#d97706' : '#0f172a'
+                                }}>{value}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Clinical Notes */}
+                          <div style={{ background: '#f0f5ff', borderRadius: '12px', padding: '16px', border: '1px solid #cbd5e1', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>clinical_notes</span>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Clinical Notes</span>
+                            </div>
+                            <p style={{ fontSize: '0.88rem', color: '#1e3a5f', lineHeight: 1.6 }}>{selectedSession.notes}</p>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                              onClick={() => { setSelectedSession(s => ({ ...s, status: 'Confirmed' })) }}
+                              style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: 'none', background: '#dcfce7', color: '#16a34a', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '4px' }}>check_circle</span>
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => { setSelectedSession(s => ({ ...s, status: 'Cancelled' })) }}
+                              style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: 'none', background: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '4px' }}>cancel</span>
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => { setSelectedPatientId(selectedSession.patient); setActiveTab('assessment'); setShowSessionDetail(false) }}
+                              style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '4px' }}>assignment</span>
+                              Assess FIM
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>,
+                    document.body
+                  )}
+
+                  {/* ── Schedule Header Card ── */}
+                  <div className="bento-card col-span-12" style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>Full Facility Therapy Schedule</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                          Showing <strong>{filteredSchedule.length}</strong> of <strong>{adminSchedule.length}</strong> sessions today
+                          {activeFilterCount > 0 && <span style={{ marginLeft: '8px', background: '#0f52ba', color: '#fff', borderRadius: '50px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active</span>}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {activeFilterCount > 0 && (
+                          <button
+                            onClick={() => setScheduleFilters({ therapist: 'All', type: 'All', status: 'All', search: '' })}
+                            style={{ padding: '8px 16px', borderRadius: '50px', border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>filter_list_off</span>
+                            Clear Filters
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowScheduleFilter(true)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                            padding: '10px 22px', borderRadius: '50px', border: 'none',
+                            background: activeFilterCount > 0
+                              ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)'
+                              : 'linear-gradient(135deg,#0f52ba,#00b4d8)',
+                            color: '#fff', fontSize: '0.9rem', fontWeight: 800, cursor: 'pointer',
+                            boxShadow: '0 4px 14px rgba(15,82,186,0.35)'
+                          }}
+                        >
+                          <span className="material-symbols-outlined">filter_list</span>
+                          Filter Schedule
+                          {activeFilterCount > 0 && <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 900 }}>{activeFilterCount}</span>}
+                        </button>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* ── Schedule Session Cards ── */}
+                  {filteredSchedule.length === 0 ? (
+                    <div className="bento-card col-span-12" style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>event_busy</span>
+                      <h4 style={{ fontWeight: 700, color: '#64748b' }}>No sessions match your filters</h4>
+                      <p style={{ fontSize: '0.85rem', marginTop: '4px' }}>Try adjusting or clearing the active filters</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {filteredSchedule.map((item) => {
+                        const typeStyle = SESSION_TYPE_COLORS[item.type] || { bg: '#f8fafc', color: '#374151', dot: '#94a3b8' }
+                        const statusColor = item.status === 'Confirmed' ? '#16a34a' : item.status === 'Cancelled' ? '#dc2626' : '#d97706'
+                        const statusBg = item.status === 'Confirmed' ? '#dcfce7' : item.status === 'Cancelled' ? '#fee2e2' : '#fef3c7'
+                        return (
+                          <div
+                            key={item.id}
+                            className="bento-card col-span-12"
+                            style={{
+                              padding: '20px 24px', cursor: 'pointer', transition: 'all 0.2s ease',
+                              display: 'flex', gap: '20px', alignItems: 'center'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(15,82,186,0.12)' }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
+                            onClick={() => { setSelectedSession(item); setShowSessionDetail(true) }}
+                          >
+                            {/* Time Badge */}
+                            <div style={{
+                              minWidth: '72px', textAlign: 'center', background: '#f8fafc',
+                              borderRadius: '12px', padding: '12px 8px', flexShrink: 0
+                            }}>
+                              <strong style={{ display: 'block', fontSize: '1.15rem', color: '#0f172a', fontFamily: 'var(--font-mono)' }}>
+                                {item.time.split(' ')[0]}
+                              </strong>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>{item.time.split(' ')[1]}</span>
+                            </div>
+
+                            {/* Session Info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                                <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{item.title}</h4>
+                                <span style={{ background: typeStyle.bg, color: typeStyle.color, borderRadius: '50px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800 }}>{item.type}</span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '16px', fontSize: '0.82rem', color: '#64748b', flexWrap: 'wrap' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>person</span>
+                                  {item.patient}
+                                </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>stethoscope</span>
+                                  {item.therapist}
+                                </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>meeting_room</span>
+                                  {item.room}
+                                </span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>timelapse</span>
+                                  {item.duration}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Status + Arrow */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                              <span style={{ background: statusBg, color: statusColor, borderRadius: '50px', padding: '5px 14px', fontSize: '0.78rem', fontWeight: 800 }}>
+                                {item.status}
+                              </span>
+                              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#cbd5e1' }}>chevron_right</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </>

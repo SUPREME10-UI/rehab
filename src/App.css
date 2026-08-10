@@ -2,6 +2,11 @@
    RHMS Modern Styling System
    ========================================================================== */
 
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* --------------------------------------------------------------------------
    1. Auth & Onboarding Landing Page
    -------------------------------------------------------------------------- */
@@ -1208,3 +1213,559 @@
     grid-column: span 12;
   }
 }
+
+/* ==========================================================================
+   Custom Select — Modal-style dropdown
+   ========================================================================== */
+.cselect-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+/* Trigger button */
+.cselect-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #0f172a;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  text-align: left;
+}
+
+.cselect-trigger:hover {
+  border-color: #0f52ba;
+  background: #f8faff;
+  box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.08);
+}
+
+.cselect-trigger.open {
+  border-color: #0f52ba;
+  box-shadow: 0 0 0 4px rgba(15, 82, 186, 0.12);
+  background: #f8faff;
+}
+
+.cselect-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cselect-chevron {
+  font-size: 20px;
+  color: #64748b;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.cselect-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* Invisible full-page backdrop to catch outside clicks */
+.cselect-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+/* The dropdown panel — modal style */
+.cselect-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1.5px solid rgba(15, 82, 186, 0.18);
+  border-radius: 14px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.07),
+    0 12px 40px -4px rgba(15, 82, 186, 0.18),
+    0 0 0 1px rgba(15, 82, 186, 0.06);
+  overflow: hidden;
+  animation: cselect-pop 0.18s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+
+@keyframes cselect-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cselect-panel-inner {
+  padding: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.cselect-panel-inner::-webkit-scrollbar {
+  width: 5px;
+}
+.cselect-panel-inner::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Individual option row */
+.cselect-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s, color 0.14s;
+  gap: 8px;
+}
+
+.cselect-option:hover {
+  background: #f0f5ff;
+  color: #0f52ba;
+}
+
+.cselect-option.selected {
+  background: linear-gradient(135deg, #e8f0fe 0%, #dbeafe 100%);
+  color: #0f52ba;
+  font-weight: 700;
+}
+
+.cselect-option-label {
+  flex: 1;
+}
+
+.cselect-check {
+  font-size: 18px;
+  color: #0f52ba;
+  flex-shrink: 0;
+}
+
+/* Dark mode variants (auth page uses dark bg) */
+.auth-form-section .cselect-trigger {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.15);
+  color: #f1f5f9;
+}
+
+.auth-form-section .cselect-trigger:hover,
+.auth-form-section .cselect-trigger.open {
+  border-color: #60a5fa;
+  background: rgba(255,255,255,0.12);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+}
+
+.auth-form-section .cselect-chevron {
+  color: #94a3b8;
+}
+
+.auth-form-section .cselect-panel {
+  background: #1e2d4a;
+  border-color: rgba(96, 165, 250, 0.25);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 12px 40px -4px rgba(15, 82, 186, 0.3);
+}
+
+.auth-form-section .cselect-option {
+  color: #e2e8f0;
+}
+
+.auth-form-section .cselect-option:hover {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}
+
+.auth-form-section .cselect-option.selected {
+  background: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+
+.auth-form-section .cselect-check {
+  color: #60a5fa;
+}
+
+/* ==========================================================================
+   Evaluation Completion Modal
+   ========================================================================== */
+
+/* Full-page overlay */
+.eval-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(10, 18, 40, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: overlay-in 0.22s ease both;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Card */
+.eval-modal-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 48px 44px 40px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 32px 80px rgba(15, 82, 186, 0.22);
+  animation: card-pop 0.28s cubic-bezier(0.34, 1.5, 0.64, 1) both;
+}
+
+@keyframes card-pop {
+  from { opacity: 0; transform: scale(0.88) translateY(20px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);    }
+}
+
+/* Success icon ring */
+.eval-modal-icon-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 0 12px rgba(16, 185, 129, 0.12), 0 4px 20px rgba(16, 185, 129, 0.35);
+  animation: icon-pulse 2s ease infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0.12), 0 4px 20px rgba(16, 185, 129, 0.35); }
+  50%       { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0.06), 0 4px 24px rgba(16, 185, 129, 0.45); }
+}
+
+.eval-modal-icon-ring .material-symbols-outlined {
+  font-size: 40px;
+  color: #ffffff;
+}
+
+/* Status badge */
+.eval-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+
+/* Title */
+.eval-modal-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+/* Patient name */
+.eval-modal-patient {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f52ba;
+  margin-bottom: 2px;
+}
+
+/* Diagnosis */
+.eval-modal-diagnosis {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 28px;
+}
+
+/* Score tiles row */
+.eval-modal-scores {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.eval-score-tile {
+  flex: 1;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  border: 1.5px solid rgba(15, 82, 186, 0.12);
+  border-radius: 14px;
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.eval-score-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.eval-score-denom {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.eval-score-lbl {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Classification chip */
+.eval-modal-class-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.eval-modal-class-chip.chip-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+.eval-modal-class-chip.chip-amber {
+  background: #fef9c3;
+  color: #a16207;
+}
+.eval-modal-class-chip.chip-red {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Meta line */
+.eval-modal-meta {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin-bottom: 28px;
+}
+
+/* Action buttons */
+.eval-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.eval-modal-btn-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.eval-modal-btn-print:hover {
+  border-color: #0f52ba;
+  background: #f0f5ff;
+  color: #0f52ba;
+  box-shadow: 0 0 0 3px rgba(15, 82, 186, 0.1);
+}
+
+.eval-modal-btn-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #0f52ba 0%, #1e78ff 100%);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 82, 186, 0.35);
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.eval-modal-btn-close:hover {
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(15, 82, 186, 0.45);
+}
+
+/* Close X button */
+.eval-modal-x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.eval-modal-x:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.eval-modal-x .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* ==========================================================================
+   Save Draft — success flash state
+   ========================================================================== */
+.btn-signout.draft-saved {
+  background: #dcfce7;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+/* Form Step Bottom Navigation Bar */
+.form-step-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  border-top: 1.5px dashed #e2e8f0;
+  margin-top: 24px;
+}
+
+/* ==========================================================================
+   Modern Action Buttons
+   ========================================================================== */
+
+/* Modern View All Patients Button */
+button.btn-view-all-modern {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 22px !important;
+  border-radius: 50px !important;
+  border: none !important;
+  background: linear-gradient(135deg, #0f52ba 0%, #00b4d8 100%) !important;
+  color: #ffffff !important;
+  font-family: var(--font-heading), var(--font-sans) !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 16px rgba(15, 82, 186, 0.4) !important;
+  transition: all 0.25s cubic-bezier(0.34, 1.5, 0.64, 1) !important;
+}
+
+button.btn-view-all-modern:hover {
+  background: linear-gradient(135deg, #003c90 0%, #0096c7 100%) !important;
+  transform: translateY(-3px) scale(1.03) !important;
+  box-shadow: 0 8px 24px rgba(15, 82, 186, 0.5) !important;
+}
+
+button.btn-view-all-modern .material-symbols-outlined {
+  font-size: 18px !important;
+  transition: transform 0.22s ease !important;
+}
+
+button.btn-view-all-modern:hover .material-symbols-outlined {
+  transform: translateX(5px) !important;
+}
+
+/* Action Assess FIM button */
+button.btn-action-assess {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 16px !important;
+  border-radius: 50px !important;
+  border: none !important;
+  background: linear-gradient(135deg, #0f52ba 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+  font-family: var(--font-heading), var(--font-sans) !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  box-shadow: 0 3px 12px rgba(15, 82, 186, 0.35) !important;
+  transition: all 0.22s cubic-bezier(0.34, 1.5, 0.64, 1) !important;
+  white-space: nowrap !important;
+}
+
+button.btn-action-assess:hover {
+  background: linear-gradient(135deg, #003c90 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(15, 82, 186, 0.5) !important;
+}
+
+button.btn-action-assess .material-symbols-outlined {
+  font-size: 16px !important;
+  transition: transform 0.2s ease !important;
+}
+
+button.btn-action-assess:hover .material-symbols-outlined {
+  transform: rotate(12deg) scale(1.15) !important;
+}
+
+
+
+
+
