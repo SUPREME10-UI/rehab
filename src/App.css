@@ -1756,14 +1756,509 @@ button.btn-action-assess:hover {
   box-shadow: 0 6px 20px rgba(15, 82, 186, 0.5) !important;
 }
 
-button.btn-action-assess .material-symbols-outlined {
-  font-size: 16px !important;
-  transition: transform 0.2s ease !important;
+/* ==========================================================================
+   Responsive Mobile & Tablet Design System
+   ========================================================================== */
+
+/* Desktop defaults for mobile-only controls */
+.mobile-hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
 }
 
-button.btn-action-assess:hover .material-symbols-outlined {
-  transform: rotate(12deg) scale(1.15) !important;
+.mobile-hamburger-btn:hover {
+  background: #f1f5f9;
 }
+
+.mobile-close-sidebar-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.mobile-sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9998;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Medium Screens & Tablets (max-width: 1024px) */
+@media (max-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+  }
+
+  .col-span-8,
+  .col-span-7,
+  .col-span-6,
+  .col-span-5,
+  .col-span-4,
+  .col-span-3 {
+    grid-column: span 12;
+  }
+
+  .portal-hero-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .hero-stats-pills {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Small Screens & Mobile Phones (max-width: 768px) */
+@media (max-width: 768px) {
+  /* Auth Landing Page Stacking */
+  .auth-wrapper {
+    flex-direction: column;
+  }
+
+  .auth-hero-section {
+    padding: 32px 24px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .auth-form-section {
+    padding: 32px 24px;
+  }
+
+  .auth-hero-body h2 {
+    font-size: 2rem;
+  }
+
+  .hero-feature-cards {
+    grid-template-columns: 1fr;
+  }
+
+  /* Portal Mobile Navigation Drawer */
+  .portal-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 9999;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .portal-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .mobile-close-sidebar-btn {
+    display: flex;
+  }
+
+  .mobile-hamburger-btn {
+    display: flex;
+  }
+
+  .portal-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .portal-topbar {
+    padding: 0 16px;
+    height: 58px;
+  }
+
+  .topbar-title-group h2 {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+
+  .portal-content {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  /* Bento Grid Mobile Layout */
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .bento-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  /* Mobile Grid Quick Action Cards */
+  div[style*="repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Mobile Grid Spec Pills */
+  div[style*="repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modal Popups on Mobile */
+  div[style*="max-width: 520px"],
+  div[style*="max-width: 480px"] {
+    width: 94vw !important;
+    max-height: 92vh !important;
+    padding: 20px !important;
+    border-radius: 20px !important;
+  }
+
+  /* Responsive Tables */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modern-table th,
+  .modern-table td {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+}
+
+/* =============================================================================
+   Accessibility & Display Settings Overrides
+   ============================================================================= */
+.large-text-app {
+  font-size: 110% !important;
+}
+
+.high-contrast-app {
+  --border-light: #64748b;
+}
+
+.high-contrast-app .bento-card {
+  border: 2px solid #0f172a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* =============================================================================
+   DARK MODE — Full UI Theme
+   ============================================================================= */
+
+/* ── Root & Layout ── */
+.dark-mode-app {
+  background-color: #0d1117 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode-app .portal-layout {
+  background-color: #0d1117 !important;
+}
+
+/* ── Main content area ── */
+.dark-mode-app .portal-main {
+  background: #0d1117 !important;
+}
+
+.dark-mode-app .portal-content {
+  background: #0d1117 !important;
+}
+
+/* ── Topbar ── */
+.dark-mode-app .portal-topbar {
+  background: #161b22 !important;
+  border-bottom-color: #30363d !important;
+}
+
+.dark-mode-app .topbar-title-group h2 {
+  color: #f0f6fc !important;
+}
+
+.dark-mode-app .topbar-title-group p {
+  color: #8b949e !important;
+}
+
+.dark-mode-app .role-badge-pill.admin {
+  background: rgba(15, 82, 186, 0.25) !important;
+  color: #93c5fd !important;
+  border-color: rgba(15, 82, 186, 0.4) !important;
+}
+
+.dark-mode-app .role-badge-pill.client {
+  background: rgba(0, 180, 216, 0.2) !important;
+  color: #67e8f9 !important;
+  border-color: rgba(0, 180, 216, 0.35) !important;
+}
+
+.dark-mode-app .icon-btn-rounded {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #8b949e !important;
+}
+
+.dark-mode-app .icon-btn-rounded:hover {
+  background: #30363d !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode-app .btn-signout {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #8b949e !important;
+}
+
+.dark-mode-app .btn-signout:hover {
+  background: #3d1a1a !important;
+  color: #f87171 !important;
+  border-color: #5a2020 !important;
+}
+
+/* ── Sidebar (already dark, minor tweaks) ── */
+.dark-mode-app .portal-sidebar {
+  background: #010409 !important;
+  border-right-color: #21262d !important;
+}
+
+.dark-mode-app .sidebar-header {
+  border-bottom-color: #21262d !important;
+}
+
+.dark-mode-app .sidebar-user-card {
+  background: #161b22 !important;
+  border-color: #21262d !important;
+}
+
+/* ── Bento Cards ── */
+.dark-mode-app .bento-card {
+  background: #161b22 !important;
+  border-color: #30363d !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark-mode-app .card-header-left h3 {
+  color: #f0f6fc !important;
+}
+
+.dark-mode-app .card-header-left p {
+  color: #8b949e !important;
+}
+
+/* ── Metric Tiles ── */
+.dark-mode-app .metric-card-tile {
+  background: #161b22 !important;
+  border-color: #30363d !important;
+}
+
+.dark-mode-app .metric-value-group strong {
+  color: #f0f6fc !important;
+}
+
+.dark-mode-app .metric-top span.title {
+  color: #8b949e !important;
+}
+
+/* ── Inputs & Selects ── */
+.dark-mode-app .modern-input,
+.dark-mode-app .modern-select {
+  background: #21262d !important;
+  border-color: #30363d !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode-app .modern-input::placeholder {
+  color: #4d5566 !important;
+}
+
+.dark-mode-app .modern-input:focus,
+.dark-mode-app .modern-select:focus {
+  background: #1c2128 !important;
+  border-color: #388bfd !important;
+  box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.15) !important;
+}
+
+.dark-mode-app .form-group label {
+  color: #8b949e !important;
+}
+
+.dark-mode-app .input-with-icon .material-symbols-outlined {
+  color: #4d5566 !important;
+}
+
+/* ── Tables ── */
+.dark-mode-app .modern-table {
+  background: #161b22 !important;
+}
+
+.dark-mode-app .modern-table thead tr {
+  background: #21262d !important;
+}
+
+.dark-mode-app .modern-table th {
+  color: #8b949e !important;
+  border-bottom-color: #30363d !important;
+}
+
+.dark-mode-app .modern-table td {
+  color: #cdd9e5 !important;
+  border-bottom-color: #21262d !important;
+}
+
+.dark-mode-app .modern-table tbody tr:hover td {
+  background: #1c2128 !important;
+}
+
+/* ── Chart Area ── */
+.dark-mode-app .chart-container-box {
+  background: #1c2128 !important;
+  border-color: #30363d !important;
+}
+
+.dark-mode-app .bar-chart-flex {
+  border-bottom-color: #30363d !important;
+}
+
+.dark-mode-app .bar-label {
+  color: #8b949e !important;
+}
+
+/* ── Hero Banner (keep gradient, adjust text) ── */
+.dark-mode-app .portal-hero-banner {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ── Stat Glass Pills (on hero) ── */
+.dark-mode-app .stat-pill-glass {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ── Inner surface panels (f8fafc backgrounds used inline) ── */
+.dark-mode-app [style*="background: #f8fafc"],
+.dark-mode-app [style*="background:#f8fafc"] {
+  background: #1c2128 !important;
+}
+
+.dark-mode-app [style*="background: rgb(248, 250, 252)"] {
+  background: #1c2128 !important;
+}
+
+/* ── Inline borders on light panels ── */
+.dark-mode-app [style*="border: 1px solid #e2e8f0"],
+.dark-mode-app [style*="border: 1.5px solid #e2e8f0"],
+.dark-mode-app [style*="border-color: #e2e8f0"] {
+  border-color: #30363d !important;
+}
+
+/* ── Inline text colours ── */
+.dark-mode-app [style*="color: #0f172a"] {
+  color: #f0f6fc !important;
+}
+
+.dark-mode-app [style*="color: #1e293b"] {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode-app [style*="color: #334155"],
+.dark-mode-app [style*="color: #374151"] {
+  color: #cdd9e5 !important;
+}
+
+.dark-mode-app [style*="color: #475569"] {
+  color: #8b949e !important;
+}
+
+.dark-mode-app [style*="color: #64748b"] {
+  color: #6e7681 !important;
+}
+
+/* ── Modal overlays ── */
+.dark-mode-app .eval-modal-overlay {
+  background: rgba(1, 4, 9, 0.85) !important;
+}
+
+.dark-mode-app .eval-modal-card {
+  background: #161b22 !important;
+  border: 1px solid #30363d !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode-app .eval-modal-title {
+  color: #f0f6fc !important;
+}
+
+.dark-mode-app .eval-modal-patient {
+  color: #8b949e !important;
+}
+
+/* ── FIM Sliders ── */
+.dark-mode-app .fim-slider-track {
+  background: #30363d !important;
+}
+
+/* ── Table Responsive Container ── */
+.dark-mode-app .table-responsive {
+  background: #161b22 !important;
+  border-color: #30363d !important;
+}
+
+/* ── Scrollbar (webkit) ── */
+.dark-mode-app ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark-mode-app ::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+
+.dark-mode-app ::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+
+.dark-mode-app ::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+/* ── Transition for smooth theme switch ── */
+.dark-mode-app,
+.dark-mode-app .bento-card,
+.dark-mode-app .portal-topbar,
+.dark-mode-app .portal-main,
+.dark-mode-app .portal-content,
+.dark-mode-app .modern-input,
+.dark-mode-app .modern-table {
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease !important;
+}
+
+
 
 
 

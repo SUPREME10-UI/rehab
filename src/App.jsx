@@ -170,6 +170,71 @@ function App() {
   const [authMode, setAuthMode] = useState('signup') // 'signup' | 'login'
   const [portalRole, setPortalRole] = useState('admin') // 'client' | 'admin'
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Settings Live Functional State
+  const [patientProfileForm, setPatientProfileForm] = useState({
+    name: 'Sarah Jenkins',
+    email: 'sarah.j@example.com',
+    phone: '+1 (555) 012-3456',
+    condition: 'Post-Op ACL Reconstruction'
+  })
+
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    name: 'Dr. Lena Ortiz, PT',
+    email: 'dortiz@rhms.org',
+    phone: '+1 (555) 987-6543',
+    facility: 'St. Jude Rehab Center',
+    specialization: 'Lead Physical Therapist'
+  })
+
+  const [patientNotifs, setPatientNotifs] = useState({
+    sessionReminders: true,
+    exerciseReminders: true,
+    goalUpdates: true,
+    therapistMessages: true,
+    weeklyReports: false
+  })
+
+  const [adminNotifs, setAdminNotifs] = useState({
+    newPatientAlerts: true,
+    scheduleChanges: true,
+    assessmentDue: true,
+    teamMessages: true,
+    dailyFacilitySummary: false
+  })
+
+  const [accessibilitySettings, setAccessibilitySettings] = useState({
+    largeText: false,
+    highContrast: false,
+    darkMode: false,
+    soundEffects: true
+  })
+
+  const [adminClinicalConfigs, setAdminClinicalConfigs] = useState({
+    painAlert: true,
+    autoFim: true,
+    rescheduleApprove: true,
+    physiatristSignoff: true,
+    complianceAlert: false
+  })
+
+  // Toast Notification state
+  const [toastMessage, setToastMessage] = useState(null)
+  const triggerToast = (text, type = 'success') => {
+    setToastMessage({ text, type })
+    setTimeout(() => setToastMessage(null), 3200)
+  }
+
+  // Modals state
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirmPass: '' })
+
+  const [show2faModal, setShow2faModal] = useState(false)
+  const [twoFaStep, setTwoFaStep] = useState(1)
+  const [twoFaCode, setTwoFaCode] = useState('')
+  const [twoFaActive, setTwoFaActive] = useState(false)
+  const [lastEhrSync, setLastEhrSync] = useState('Connected & Syncing (FHIR v4)')
 
   const [adminPatients, setAdminPatients] = useState([
     { id: 'PT-88234', name: 'Eleanor Vance', age: 66, dob: '12/04/1958', diagnosis: 'Right MCA CVA (Stroke)', therapist: 'Dr. Sarah Chen', status: 'Inpatient', score: '78/126' },
@@ -869,10 +934,167 @@ function App() {
   // --------------------------------------------------------------------------
   const isClient = sessionUser.role === 'client'
 
+  // Data Export Handlers
+  const handleDownloadPatientData = () => {
+    const data = {
+      user: sessionUser,
+      dailyPainLog: clientDailyPain,
+      completedExercises: completedExerciseIds,
+      appointments: clientAppointments,
+      sessionHistory: clientSessionHistory,
+      exportTimestamp: new Date().toISOString()
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `clinical_recovery_data_${sessionUser.name.replace(/\s+/g, '_')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    triggerToast('Health records exported as JSON file!')
+  }
+
+  const handleExportHipaaLogs = () => {
+    const csvContent = "Timestamp,User,Action,Resource,Status,SecurityLevel\n" +
+      `${new Date().toISOString()},${sessionUser.email},READ_PATIENT_RECORD,PT-88234,SUCCESS,AES-256-ENCRYPTED\n` +
+      `${new Date().toISOString()},${sessionUser.email},FIM_ASSESSMENT_UPDATE,PT-88236,SUCCESS,AES-256-ENCRYPTED\n` +
+      `${new Date().toISOString()},${sessionUser.email},EHR_FHIR_SYNC,EPIC_EMR,SUCCESS,AES-256-ENCRYPTED\n`
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `hipaa_clinical_audit_log_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    triggerToast('Encrypted HIPAA audit logs exported as CSV!')
+  }
+
   return (
-    <div className="portal-layout">
+    <div className={`portal-layout ${accessibilitySettings.largeText ? 'large-text-app' : ''} ${accessibilitySettings.highContrast ? 'high-contrast-app' : ''} ${accessibilitySettings.darkMode ? 'dark-mode-app' : ''}`}>
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed', top: '20px', right: '20px', zIndex: 999999,
+          background: toastMessage.type === 'error' ? '#fef2f2' : '#f0fdf4',
+          color: toastMessage.type === 'error' ? '#dc2626' : '#15803d',
+          border: `1.5px solid ${toastMessage.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
+          borderRadius: '50px', padding: '12px 24px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+          display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 800, fontSize: '0.88rem',
+          animation: 'fadeSlideIn 0.25s ease'
+        }}>
+          <span className="material-symbols-outlined">{toastMessage.type === 'error' ? 'error' : 'check_circle'}</span>
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showPasswordModal && createPortal(
+        <div className="eval-modal-overlay" onClick={() => setShowPasswordModal(false)}>
+          <div className="eval-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="eval-modal-icon-ring" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+              <span className="material-symbols-outlined">lock</span>
+            </div>
+            <h2 className="eval-modal-title">Change Password</h2>
+            <p className="eval-modal-patient" style={{ marginBottom: '20px' }}>Update your clinical portal security credentials</p>
+
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              if (passwordForm.newPass !== passwordForm.confirmPass) {
+                triggerToast('New passwords do not match!', 'error')
+                return
+              }
+              if (passwordForm.newPass.length < 6) {
+                triggerToast('Password must be at least 6 characters.', 'error')
+                return
+              }
+              setShowPasswordModal(false)
+              setPasswordForm({ current: '', newPass: '', confirmPass: '' })
+              triggerToast('Password updated successfully!')
+            }}>
+              <div className="form-group" style={{ marginBottom: '14px', textAlign: 'left' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700 }}>Current Password</label>
+                <input type="password" required className="modern-input" value={passwordForm.current} onChange={e => setPasswordForm(p => ({ ...p, current: e.target.value }))} placeholder="••••••••" />
+              </div>
+              <div className="form-group" style={{ marginBottom: '14px', textAlign: 'left' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700 }}>New Password</label>
+                <input type="password" required className="modern-input" value={passwordForm.newPass} onChange={e => setPasswordForm(p => ({ ...p, newPass: e.target.value }))} placeholder="At least 6 characters" />
+              </div>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700 }}>Confirm New Password</label>
+                <input type="password" required className="modern-input" value={passwordForm.confirmPass} onChange={e => setPasswordForm(p => ({ ...p, confirmPass: e.target.value }))} placeholder="Re-enter new password" />
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn-signout" style={{ flex: 1 }} onClick={() => setShowPasswordModal(false)}>Cancel</button>
+                <button type="submit" className="modern-submit-btn" style={{ flex: 2, marginTop: 0 }}>Update Password</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 2FA Verification Modal */}
+      {show2faModal && createPortal(
+        <div className="eval-modal-overlay" onClick={() => setShow2faModal(false)}>
+          <div className="eval-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="eval-modal-icon-ring" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+              <span className="material-symbols-outlined">security</span>
+            </div>
+            <h2 className="eval-modal-title">{twoFaActive ? 'Manage Two-Factor Auth' : 'Enable 2-Factor Authentication'}</h2>
+            <p className="eval-modal-patient" style={{ marginBottom: '16px' }}>Secure your rehabilitation account with TOTP 2FA</p>
+
+            {twoFaActive ? (
+              <div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#16a34a', display: 'block', marginBottom: '6px' }}>verified_user</span>
+                  <strong style={{ color: '#166534', fontSize: '0.95rem' }}>Two-Factor Authentication is Active</strong>
+                  <p style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '4px', margin: 0 }}>Your account is protected with authenticator code verification.</p>
+                </div>
+                <button className="btn-signout" style={{ width: '100%', color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2' }} onClick={() => { setTwoFaActive(false); setShow2faModal(false); triggerToast('Two-Factor Authentication disabled.') }}>
+                  Disable 2FA Security
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', textAlign: 'center', marginBottom: '16px' }}>
+                  <div style={{ width: '120px', height: '120px', background: '#fff', border: '2px solid #0f172a', margin: '0 auto 12px auto', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '64px', color: '#0f172a' }}>qr_code_2</span>
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0 }}>Scan QR code using Google Authenticator or Duo, then enter the 6-digit code below.</p>
+                </div>
+                <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700 }}>6-Digit Verification Code</label>
+                  <input type="text" className="modern-input" value={twoFaCode} onChange={e => setTwoFaCode(e.target.value)} placeholder="e.g. 123456" maxLength={6} style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: '1.1rem', fontWeight: 800 }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" className="btn-signout" style={{ flex: 1 }} onClick={() => setShow2faModal(false)}>Cancel</button>
+                  <button type="button" className="modern-submit-btn" style={{ flex: 2, marginTop: 0 }} onClick={() => {
+                    if (twoFaCode.length < 6) {
+                      triggerToast('Please enter a 6-digit verification code.', 'error')
+                      return
+                    }
+                    setTwoFaActive(true)
+                    setShow2faModal(false)
+                    setTwoFaCode('')
+                    triggerToast('Two-Factor Authentication activated successfully!')
+                  }}>
+                    Verify & Activate 2FA
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div className="mobile-sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
       {/* Shared Dark Sidebar Navigation */}
-      <aside className="portal-sidebar">
+      <aside className={`portal-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand-icon">
             <span className="material-symbols-outlined">medical_services</span>
@@ -881,6 +1103,12 @@ function App() {
             <h2>RHMS</h2>
             <p>{isClient ? 'Patient Portal' : 'Clinical Portal'}</p>
           </div>
+          <button
+            className="mobile-close-sidebar-btn"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
         </div>
 
         <div className="sidebar-user-pill">
@@ -898,36 +1126,36 @@ function App() {
             <>
               <button
                 className={`nav-link-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false) }}
               >
-                <span className="material-symbols-outlined">dashboard</span>
-                My Recovery Overview
+                <span className="material-symbols-outlined">clinical_notes</span>
+                My Clinical Recovery
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'goals' ? 'active' : ''}`}
-                onClick={() => setActiveTab('goals')}
+                onClick={() => { setActiveTab('goals'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">flag</span>
-                Treatment Goals
+                Rehab Goals & FIM
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'appointments' ? 'active' : ''}`}
-                onClick={() => setActiveTab('appointments')}
+                onClick={() => { setActiveTab('appointments'); setMobileMenuOpen(false) }}
               >
-                <span className="material-symbols-outlined">event_available</span>
-                Therapy Sessions
+                <span className="material-symbols-outlined">calendar_today</span>
+                Clinical Sessions
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'exercises' ? 'active' : ''}`}
-                onClick={() => setActiveTab('exercises')}
+                onClick={() => { setActiveTab('exercises'); setMobileMenuOpen(false) }}
               >
-                <span className="material-symbols-outlined">fitness_center</span>
-                Home Exercises
+                <span className="material-symbols-outlined">medical_services</span>
+                Prescribed Protocols
               </button>
               <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
               <button
                 className={`nav-link-item ${activeTab === 'settings' ? 'active' : ''}`}
-                onClick={() => setActiveTab('settings')}
+                onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">settings</span>
                 Settings
@@ -936,29 +1164,36 @@ function App() {
           ) : (
             <>
               <button
+                className={`nav-link-item ${activeTab === 'add-patient' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('add-patient'); setMobileMenuOpen(false) }}
+              >
+                <span className="material-symbols-outlined">person_add</span>
+                New Admission
+              </button>
+              <button
                 className={`nav-link-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">dashboard</span>
                 Facility Overview
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'patients' ? 'active' : ''}`}
-                onClick={() => setActiveTab('patients')}
+                onClick={() => { setActiveTab('patients'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">groups</span>
                 Patient Directory
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'assessment' ? 'active' : ''}`}
-                onClick={() => setActiveTab('assessment')}
+                onClick={() => { setActiveTab('assessment'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">assessment</span>
                 FIM & Assessments
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'schedule' ? 'active' : ''}`}
-                onClick={() => setActiveTab('schedule')}
+                onClick={() => { setActiveTab('schedule'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">calendar_today</span>
                 Facility Schedule
@@ -966,7 +1201,7 @@ function App() {
               <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
               <button
                 className={`nav-link-item ${activeTab === 'settings' ? 'active' : ''}`}
-                onClick={() => setActiveTab('settings')}
+                onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">settings</span>
                 Settings
@@ -975,55 +1210,33 @@ function App() {
           )}
         </nav>
 
-        <div className="sidebar-cta">
-          <button className="btn-sidebar-cta" onClick={() => alert(isClient ? 'Messaging Care Team...' : 'Adding New Admission...')}>
-            <span className="material-symbols-outlined">{isClient ? 'chat' : 'add'}</span>
-            {isClient ? 'Contact Care Team' : 'New Admission'}
-          </button>
-        </div>
+        {isClient && (
+          <div className="sidebar-cta">
+            <button className="btn-sidebar-cta" onClick={() => { setMobileMenuOpen(false); alert('Messaging Care Team...') }}>
+              <span className="material-symbols-outlined">chat</span>
+              Contact Care Team
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main Panel */}
       <main className="portal-main">
         {/* Topbar Header */}
         <header className="portal-topbar">
-          <div className="topbar-title-group">
+          <div className="topbar-title-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label="Toggle Navigation Menu"
+            >
+              <span className="material-symbols-outlined">menu</span>
+            </button>
             <h2>{isClient ? 'Patient Recovery Workspace' : 'Clinical Facility Management'}</h2>
           </div>
 
           <div className="topbar-actions">
-            {!isClient && (
-              <button
-                type="button"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  borderRadius: '50px',
-                  border: '1.5px solid #0f52ba',
-                  background: '#dcfce7',
-                  color: '#15803d',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                onClick={() => {
-                  setSessionUser({
-                    role: 'client',
-                    name: 'Sarah Jenkins',
-                    email: 'sarah.j@example.com',
-                    condition: 'Post-Op ACL Reconstruction',
-                    patientId: 'PT-88236'
-                  })
-                  setPortalRole('client')
-                  setActiveTab('dashboard')
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>swap_horiz</span>
-                Switch to Patient Portal
-              </button>
-            )}
+
 
             <span className={`role-badge-pill ${isClient ? 'client' : 'admin'}`}>
               <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
@@ -1227,43 +1440,52 @@ function App() {
                 document.body
               )}
 
-              {/* ── PATIENT TAB 1: MY RECOVERY OVERVIEW ── */}
+              {/* ── PATIENT TAB 1: MY CLINICAL RECOVERY ── */}
               {activeTab === 'dashboard' && (
                 <>
-                  {/* Hero Banner */}
-                  <section className="portal-hero-banner">
+                  {/* Hero Banner — Clinical Recovery Portal */}
+                  <section className="portal-hero-banner" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: '24px', padding: '28px 32px' }}>
                     <div className="hero-banner-content">
-                      <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'inline-block', marginBottom: '12px' }}>
-                        Day 24 of Recovery
-                      </span>
-                      <h2>Welcome back, {sessionUser.name.split(' ')[0]}! 👋</h2>
-                      <p>
-                        You're on <strong>Day 24</strong> of your <strong>{sessionUser.condition}</strong> program. Mobility scores are up <strong>+15%</strong> this week — great progress!
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ background: 'rgba(255,255,255,0.18)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#fff' }}>
+                          Clinical Rehab Day 24
+                        </span>
+                        <span style={{ background: 'rgba(34,197,94,0.25)', color: '#4ade80', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Phase 2: Active ROM & Weight Bearing
+                        </span>
+                      </div>
+                      <h2 style={{ fontSize: '1.7rem', fontWeight: 900, color: '#ffffff', margin: 0 }}>Welcome back, {sessionUser.name.split(' ')[0]} 👋</h2>
+                      <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', marginTop: '6px', marginBottom: 0 }}>
+                        Post-Op ACL Reconstruction (Right Knee) &nbsp;·&nbsp; Lead Physiatrist: <strong>Dr. Lena Ortiz, MD</strong> &nbsp;·&nbsp; PT Specialist: <strong>Dr. A. Smith, PT</strong>
                       </p>
                     </div>
                     <div className="hero-stats-pills">
                       <div className="stat-pill-glass">
-                        <strong>80%</strong>
-                        <span>Mobility Target</span>
+                        <strong>110°</strong>
+                        <span>Active ROM (Flexion)</span>
+                      </div>
+                      <div className="stat-pill-glass">
+                        <strong>104<span style={{ fontSize: '0.8rem', fontWeight: 600 }}>/126</span></strong>
+                        <span>Total FIM Score</span>
                       </div>
                       <div className="stat-pill-glass">
                         <strong>{clientDailyPain}/10</strong>
-                        <span>Pain Index</span>
+                        <span>VAS Pain Index</span>
                       </div>
                       <div className="stat-pill-glass">
                         <strong>🔥 6</strong>
-                        <span>Day Streak</span>
+                        <span>Protocol Streak</span>
                       </div>
                     </div>
                   </section>
 
-                  {/* Quick Action Cards */}
+                  {/* Quick Action Cards — Clinical Shortcuts */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', padding: '0 0 4px 0' }}>
                     {[
-                      { icon: 'fitness_center', label: 'Exercises', sublabel: `${completedExerciseIds.length}/${clientExercises.length} done`, tab: 'exercises', color: '#0f52ba', bg: '#eff6ff' },
-                      { icon: 'event', label: 'Sessions', sublabel: `${clientAppointments.length} upcoming`, tab: 'appointments', color: '#7c3aed', bg: '#f5f3ff' },
-                      { icon: 'flag', label: 'My Goals', sublabel: '78% achieved', tab: 'goals', color: '#059669', bg: '#ecfdf5' },
-                      { icon: 'monitor_heart', label: 'Pain Today', sublabel: `${clientDailyPain}/10 index`, tab: null, color: '#dc2626', bg: '#fef2f2' },
+                      { icon: 'medical_services', label: 'Prescribed Protocols', sublabel: `${completedExerciseIds.length}/${clientExercises.length} completed today`, tab: 'exercises', color: '#0f52ba', bg: '#eff6ff' },
+                      { icon: 'calendar_today', label: 'Clinical Sessions', sublabel: `${clientAppointments.length} upcoming appointments`, tab: 'appointments', color: '#7c3aed', bg: '#f5f3ff' },
+                      { icon: 'flag', label: 'Rehab Goals & FIM', sublabel: '78% milestones achieved', tab: 'goals', color: '#059669', bg: '#ecfdf5' },
+                      { icon: 'monitor_heart', label: 'Pain & ROM Telemetry', sublabel: `Logged: ${clientDailyPain}/10 VAS today`, tab: null, color: '#dc2626', bg: '#fef2f2' },
                     ].map(card => (
                       <div
                         key={card.label}
@@ -1277,7 +1499,7 @@ function App() {
                         </div>
                         <div style={{ fontSize: '0.78rem', fontWeight: 800, color: card.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{card.label}</div>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{card.sublabel}</div>
-                        {card.tab && <div style={{ fontSize: '0.72rem', color: card.color, fontWeight: 700, marginTop: '8px' }}>View details →</div>}
+                        {card.tab && <div style={{ fontSize: '0.72rem', color: card.color, fontWeight: 700, marginTop: '8px' }}>Open section →</div>}
                       </div>
                     ))}
                   </div>
@@ -1386,18 +1608,18 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Prescribed Home Routine (Interactive Tracker) */}
+                    {/* Prescribed Rehabilitation Protocols (Interactive Clinical Tracker) */}
                     <div className="bento-card col-span-5">
                       <div className="card-header">
                         <div className="card-header-left">
-                          <h3>Today's Routine</h3>
-                          <p>{completedExerciseIds.length} of {clientExercises.length} exercises completed</p>
+                          <h3>Prescribed Therapy Protocols</h3>
+                          <p>{completedExerciseIds.length} of {clientExercises.length} daily protocols completed</p>
                         </div>
                         <button
                           onClick={() => setActiveTab('exercises')}
                           style={{ background: 'none', border: 'none', color: '#0f52ba', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
                         >
-                          View All →
+                          View Protocol Guide →
                         </button>
                       </div>
 
@@ -1418,9 +1640,9 @@ function App() {
                         </svg>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                            {completedExerciseIds.length === clientExercises.length ? '🎉 All Done!' : `${clientExercises.length - completedExerciseIds.length} exercises left`}
+                            {completedExerciseIds.length === clientExercises.length ? '🎉 All Protocols Completed!' : `${clientExercises.length - completedExerciseIds.length} protocols remaining today`}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Keep up your 6-day streak!</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>6-Day Rehabilitation Compliance Streak</div>
                         </div>
                       </div>
 
@@ -1854,22 +2076,24 @@ function App() {
                 </div>
               )}
 
-              {/* ── PATIENT TAB 4: HOME EXERCISES ── */}
+              {/* ── PATIENT TAB 4: PRESCRIBED REHAB PROTOCOLS ── */}
               {activeTab === 'exercises' && (
                 <div className="bento-grid">
-                  {/* Enhanced Header */}
+                  {/* Enhanced Clinical Header */}
                   <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
                       <div>
-                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Home Exercise Program</span>
-                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Your Prescribed Exercises</h2>
-                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>Complete your daily routine to maintain your recovery streak and hit your weekly targets.</p>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Clinical Therapy Protocols</span>
+                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Prescribed Rehabilitation Exercises</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', marginTop: '4px' }}>
+                          Therapeutic protocol prescribed by <strong>Dr. A. Smith, PT</strong> for Post-Op ACL Rehabilitation & Joint Range of Motion.
+                        </p>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
                         {[
-                          { label: 'Today', value: `${completedExerciseIds.length}/${clientExercises.length}`, icon: 'check_circle', bg: 'rgba(34,197,94,0.2)' },
-                          { label: 'Streak', value: '🔥 6', icon: 'local_fire_department', bg: 'rgba(234,88,12,0.2)' },
-                          { label: 'This Week', value: '85%', icon: 'trending_up', bg: 'rgba(255,255,255,0.15)' },
+                          { label: 'Protocols Today', value: `${completedExerciseIds.length}/${clientExercises.length}`, icon: 'check_circle', bg: 'rgba(34,197,94,0.2)' },
+                          { label: 'Adherence', value: '🔥 6-Day', icon: 'local_fire_department', bg: 'rgba(234,88,12,0.2)' },
+                          { label: 'Compliance', value: '85%', icon: 'trending_up', bg: 'rgba(255,255,255,0.15)' },
                         ].map(s => (
                           <div key={s.label} style={{ background: s.bg, backdropFilter: 'blur(8px)', borderRadius: '14px', padding: '14px 18px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', minWidth: '85px' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'rgba(255,255,255,0.9)', display: 'block', marginBottom: '3px' }}>{s.icon}</span>
@@ -2045,8 +2269,8 @@ function App() {
                           {/* In-Card Completion Progress Bar */}
                           <div style={{ marginBottom: '14px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
-                              <span>Card Goal Progress</span>
-                              <span style={{ color: isDone ? '#16a34a' : '#0f52ba' }}>{isDone ? '100% Completed' : '0% Completed'}</span>
+                              <span>Protocol Target</span>
+                              <span style={{ color: isDone ? '#16a34a' : '#0f52ba' }}>{isDone ? '100% Prescribed Target Met' : '0% Completed Today'}</span>
                             </div>
                             <div style={{ background: '#e2e8f0', borderRadius: '50px', height: '6px', overflow: 'hidden' }}>
                               <div style={{ width: isDone ? '100%' : '0%', height: '100%', background: isDone ? 'linear-gradient(90deg,#16a34a,#22c55e)' : '#0f52ba', transition: 'width 0.4s ease' }} />
@@ -2055,24 +2279,36 @@ function App() {
                         </div>
 
                         {/* Action Buttons */}
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <button
                             onClick={() => { setSelectedExerciseDetail(ex); setShowExerciseDetailModal(true) }}
                             style={{
-                              padding: '10px 18px', borderRadius: '50px', border: '1.5px solid #cbd5e1',
-                              background: '#fff', color: '#475569', fontSize: '0.82rem', fontWeight: 700,
+                              padding: '10px 16px', borderRadius: '50px', border: '1.5px solid #cbd5e1',
+                              background: '#fff', color: '#475569', fontSize: '0.8rem', fontWeight: 700,
                               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
                             }}
                           >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>menu_book</span>
-                            View Guide
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>clinical_notes</span>
+                            Protocol Guide
+                          </button>
+                          <button
+                            onClick={() => alert(`Symptom note logged for ${ex.name}. Your physical therapist Dr. A. Smith has been notified.`)}
+                            style={{
+                              padding: '10px 14px', borderRadius: '50px', border: '1.5px solid #fecaca',
+                              background: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 700,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap'
+                            }}
+                            title="Report pain or difficulty during this exercise"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>warning</span>
+                            Report Pain
                           </button>
                           <button
                             onClick={() => toggleExerciseComplete(ex.id)}
                             style={{
                               flex: 1, padding: '10px 18px', borderRadius: '50px', border: 'none',
                               background: isDone ? '#16a34a' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
-                              color: '#fff', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
+                              color: '#fff', fontWeight: 800, fontSize: '0.82rem', cursor: 'pointer',
                               boxShadow: isDone ? 'none' : '0 4px 14px rgba(15,82,186,0.3)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                               whiteSpace: 'nowrap'
@@ -2081,7 +2317,7 @@ function App() {
                             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
                               {isDone ? 'check_circle' : 'play_circle'}
                             </span>
-                            {isDone ? '✓ Completed Today' : 'Mark Completed'}
+                            {isDone ? '✓ Protocol Completed' : 'Mark Completed'}
                           </button>
                         </div>
                       </div>
@@ -2130,131 +2366,180 @@ function App() {
               )}
 
               {/* ── PATIENT/ADMIN SETTINGS TAB ── */}
+              {/* ── PATIENT SETTINGS TAB ── */}
               {activeTab === 'settings' && (
                 <div className="bento-grid">
                   <div className="bento-card col-span-12" style={{ padding: '28px' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>Account Settings</h2>
-                    <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 24px 0' }}>Manage your profile, preferences, and account details.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f172a', margin: '0 0 4px 0' }}>Patient Account & Recovery Settings</h2>
+                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>Manage your personal medical profile, notifications, display preferences, and account security.</p>
+                      </div>
+                      <span style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        Patient ID: {sessionUser.patientId || 'PT-88236'}
+                      </span>
+                    </div>
 
-                    {/* Profile Section */}
+                    {/* Profile Section Form */}
                     <div style={{ marginBottom: '28px' }}>
                       <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Profile Information</h3>
-                      <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0' }}>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          setSessionUser(prev => ({
+                            ...prev,
+                            name: patientProfileForm.name,
+                            email: patientProfileForm.email,
+                            condition: patientProfileForm.condition
+                          }))
+                          triggerToast('Patient profile settings saved successfully!')
+                        }}
+                        style={{ background: '#f8fafc', borderRadius: '16px', padding: '22px', border: '1px solid #e2e8f0' }}
+                      >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                           <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 900, flexShrink: 0 }}>
-                            {sessionUser.name.split(' ').map(n => n[0]).join('')}
+                            {patientProfileForm.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>{sessionUser.name}</div>
-                            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{sessionUser.email}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#0f52ba', fontWeight: 700, marginTop: '2px' }}>{isClient ? `Patient ID: ${sessionUser.patientId || 'N/A'}` : sessionUser.specialization}</div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>{patientProfileForm.name}</div>
+                            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>{patientProfileForm.email}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#0f52ba', fontWeight: 700, marginTop: '2px' }}>{patientProfileForm.condition}</div>
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
                           <div>
                             <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                            <input className="modern-input" defaultValue={sessionUser.name} readOnly />
+                            <input className="modern-input" value={patientProfileForm.name} onChange={e => setPatientProfileForm(p => ({ ...p, name: e.target.value }))} required />
                           </div>
                           <div>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Email</label>
-                            <input className="modern-input" defaultValue={sessionUser.email} readOnly />
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Email Address</label>
+                            <input type="email" className="modern-input" value={patientProfileForm.email} onChange={e => setPatientProfileForm(p => ({ ...p, email: e.target.value }))} required />
                           </div>
                           <div>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>{isClient ? 'Condition' : 'Facility'}</label>
-                            <input className="modern-input" defaultValue={isClient ? (sessionUser.condition || 'N/A') : (sessionUser.facility || 'N/A')} readOnly />
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Primary Condition / Diagnosis</label>
+                            <input className="modern-input" value={patientProfileForm.condition} onChange={e => setPatientProfileForm(p => ({ ...p, condition: e.target.value }))} required />
                           </div>
                           <div>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Phone</label>
-                            <input className="modern-input" defaultValue="+1 (555) 012-3456" />
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Phone Number</label>
+                            <input className="modern-input" value={patientProfileForm.phone} onChange={e => setPatientProfileForm(p => ({ ...p, phone: e.target.value }))} required />
                           </div>
                         </div>
-                      </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <button type="submit" className="modern-submit-btn" style={{ width: 'auto', padding: '10px 24px', marginTop: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
+                            Save Profile Changes
+                          </button>
+                        </div>
+                      </form>
                     </div>
 
                     {/* Notification Preferences */}
                     <div style={{ marginBottom: '28px' }}>
                       <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Notification Preferences</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(isClient ? [
-                          { label: 'Session Reminders', desc: 'Get notified 1 hour before therapy sessions', on: true },
-                          { label: 'Exercise Reminders', desc: 'Daily reminder for your home exercise program', on: true },
-                          { label: 'Goal Updates', desc: 'Notifications when you reach a milestone', on: true },
-                          { label: 'Therapist Messages', desc: 'Receive notes from your care team', on: true },
-                          { label: 'Weekly Reports', desc: 'Weekly progress summary via email', on: false },
-                        ] : [
-                          { label: 'New Patient Alerts', desc: 'Notifications when new patients are admitted', on: true },
-                          { label: 'Schedule Changes', desc: 'Alerts for session cancellations or reschedules', on: true },
-                          { label: 'Assessment Due', desc: 'Reminders for pending FIM assessments', on: true },
-                          { label: 'Team Messages', desc: 'Messages from clinical staff', on: true },
-                          { label: 'Daily Facility Summary', desc: 'Daily census and session report', on: false },
-                        ]).map(notif => (
-                          <div key={notif.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div>
-                              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>{notif.label}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>{notif.desc}</div>
+                        {[
+                          { key: 'sessionReminders', label: 'Therapy Session Reminders', desc: 'Get SMS & push notifications 1 hour before scheduled sessions' },
+                          { key: 'exerciseReminders', label: 'Daily Exercise Protocols', desc: 'Reminder at 09:00 AM to complete prescribed home routine' },
+                          { key: 'goalUpdates', label: 'Milestone Progress Alerts', desc: 'Notifications when you reach a Range of Motion or FIM milestone' },
+                          { key: 'therapistMessages', label: 'Care Team Notes & Messages', desc: 'Instant alerts when Dr. Lena Ortiz or Dr. Smith updates clinical notes' },
+                          { key: 'weeklyReports', label: 'Weekly Recovery Summary Email', desc: 'Receive a summary of weekly mobility gains every Sunday evening' },
+                        ].map(notif => {
+                          const isChecked = !!patientNotifs[notif.key]
+                          return (
+                            <div key={notif.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                              <div>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>{notif.label}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>{notif.desc}</div>
+                              </div>
+                              <div
+                                onClick={() => {
+                                  setPatientNotifs(prev => ({ ...prev, [notif.key]: !prev[notif.key] }))
+                                  triggerToast(`Notification "${notif.label}" ${!isChecked ? 'enabled' : 'disabled'}.`)
+                                }}
+                                style={{ width: '44px', height: '24px', borderRadius: '50px', background: isChecked ? '#0f52ba' : '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                              >
+                                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: isChecked ? 'translateX(20px)' : 'translateX(0)' }} />
+                              </div>
                             </div>
-                            <div
-                              onClick={(e) => { const el = e.currentTarget; el.dataset.on = el.dataset.on === 'true' ? 'false' : 'true'; el.style.background = el.dataset.on === 'true' ? '#0f52ba' : '#cbd5e1'; el.querySelector('div').style.transform = el.dataset.on === 'true' ? 'translateX(18px)' : 'translateX(0)' }}
-                              data-on={notif.on ? 'true' : 'false'}
-                              style={{ width: '42px', height: '24px', borderRadius: '50px', background: notif.on ? '#0f52ba' : '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
-                            >
-                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: notif.on ? 'translateX(18px)' : 'translateX(0)' }} />
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
 
-                    {/* Accessibility */}
+                    {/* Accessibility & Display Settings */}
                     <div style={{ marginBottom: '28px' }}>
-                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Accessibility & Display</h3>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Accessibility & Display Settings</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         {[
-                          { icon: 'text_increase', label: 'Large Text', desc: 'Increase font size across the app' },
-                          { icon: 'contrast', label: 'High Contrast', desc: 'Enhance color contrast for readability' },
-                          { icon: 'dark_mode', label: 'Dark Mode', desc: 'Switch to dark color scheme' },
-                          { icon: 'volume_up', label: 'Sound Effects', desc: 'Enable completion sounds' },
-                        ].map(opt => (
-                          <div key={opt.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#0f52ba' }}>{opt.icon}</span>
+                          { key: 'largeText', icon: 'text_increase', label: 'Large Font Mode', desc: 'Increase text size across the rehabilitation workspace' },
+                          { key: 'highContrast', icon: 'contrast', label: 'High Contrast UI', desc: 'Sharpen color contrast for high visibility' },
+                          { key: 'darkMode', icon: 'dark_mode', label: 'Dark Mode Interface', desc: 'Switch to high-contrast dark visual theme' },
+                          { key: 'soundEffects', icon: 'volume_up', label: 'Audio Completion Cues', desc: 'Play audible tone when completing exercise sets' },
+                        ].map(opt => {
+                          const isChecked = !!accessibilitySettings[opt.key]
+                          return (
+                            <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: isChecked ? '#eff6ff' : '#f8fafc', borderRadius: '14px', border: `1.5px solid ${isChecked ? '#bfdbfe' : '#e2e8f0'}` }}>
+                              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: isChecked ? '#0f52ba' : '#e2e8f0', color: isChecked ? '#fff' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{opt.icon}</span>
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
+                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{opt.desc}</div>
+                              </div>
+                              <div
+                                onClick={() => {
+                                  setAccessibilitySettings(prev => ({ ...prev, [opt.key]: !prev[opt.key] }))
+                                  triggerToast(`${opt.label} ${!isChecked ? 'turned ON' : 'turned OFF'}.`)
+                                }}
+                                style={{ width: '44px', height: '24px', borderRadius: '50px', background: isChecked ? '#0f52ba' : '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                              >
+                                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: isChecked ? 'translateX(20px)' : 'translateX(0)' }} />
+                              </div>
                             </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{opt.desc}</div>
-                            </div>
-                            <div
-                              onClick={(e) => { const el = e.currentTarget; el.dataset.on = el.dataset.on === 'true' ? 'false' : 'true'; el.style.background = el.dataset.on === 'true' ? '#0f52ba' : '#cbd5e1'; el.querySelector('div').style.transform = el.dataset.on === 'true' ? 'translateX(18px)' : 'translateX(0)' }}
-                              data-on="false"
-                              style={{ width: '42px', height: '24px', borderRadius: '50px', background: '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
-                            >
-                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: 'translateX(0)' }} />
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
 
                     {/* Privacy & Security */}
                     <div style={{ marginBottom: '28px' }}>
-                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Privacy & Security</h3>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>Privacy & Account Security</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {[
-                          { icon: 'lock', label: 'Change Password', desc: 'Update your account password' },
-                          { icon: 'security', label: 'Two-Factor Authentication', desc: 'Add an extra layer of security' },
-                          { icon: 'download', label: 'Download My Data', desc: isClient ? 'Export your health records and exercise history' : 'Export patient data and facility reports' },
-                        ].map(sec => (
-                          <div key={sec.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
-                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#7c3aed' }}>{sec.icon}</span>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{sec.label}</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{sec.desc}</div>
-                            </div>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#cbd5e1' }}>chevron_right</span>
+                        <div
+                          onClick={() => setShowPasswordModal(true)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = '#0f52ba'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                        >
+                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#7c3aed' }}>lock</span>
                           </div>
-                        ))}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>Change Password</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Update your login password and security key</div>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: '#0f52ba', fontWeight: 700 }}>Update →</span>
+                        </div>
+
+                        <div
+                          onClick={() => setShow2faModal(true)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = '#0f52ba'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                        >
+                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#0284c7' }}>security</span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>Two-Factor Authentication (2FA)</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Add extra security via Google Authenticator TOTP</div>
+                          </div>
+                          <span style={{ background: twoFaActive ? '#dcfce7' : '#f1f5f9', color: twoFaActive ? '#16a34a' : '#475569', padding: '3px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800 }}>
+                            {twoFaActive ? '✓ Active' : 'Enable'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -2265,7 +2550,7 @@ function App() {
                         <button onClick={handleSignOut} style={{ padding: '10px 22px', borderRadius: '50px', border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>logout</span> Sign Out
                         </button>
-                        <button onClick={() => alert('Account deletion requires verification. Contact your care team.')} style={{ padding: '10px 22px', borderRadius: '50px', border: '1.5px solid #fecaca', background: '#fff', color: '#dc2626', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Delete Account</button>
+                        <button onClick={() => alert('Account deletion requires care team authorization. Please contact Dr. Lena Ortiz.')} style={{ padding: '10px 22px', borderRadius: '50px', border: '1.5px solid #fecaca', background: '#fff', color: '#dc2626', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Delete Account</button>
                       </div>
                     </div>
                   </div>
@@ -2283,6 +2568,50 @@ function App() {
               {activeTab === 'dashboard' && (
                 <>
                   <div className="bento-grid">
+                    {/* New Admission Quick Header Banner on Top of Facility Overview */}
+                    <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg, #0f52ba 0%, #1e3a5f 100%)', color: '#ffffff', padding: '22px 28px', borderRadius: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '26px', color: '#ffffff' }}>person_add</span>
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                              <span style={{ background: 'rgba(255, 255, 255, 0.2)', color: '#ffffff', padding: '2px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Admission Intake Active
+                              </span>
+                              <span style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.78rem', fontWeight: 600 }}>• 3 pending intakes today</span>
+                            </div>
+                            <h3 style={{ fontSize: '1.35rem', fontWeight: 900, margin: 0, color: '#ffffff' }}>New Patient Admission & Intake</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.8)', marginTop: '2px', marginBottom: 0 }}>
+                              Register incoming patients, assign primary care therapists, and initiate initial FIM baseline assessments.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 22px',
+                            borderRadius: '50px',
+                            border: 'none',
+                            background: '#ffffff',
+                            color: '#0f52ba',
+                            fontSize: '0.88rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onClick={() => setActiveTab('add-patient')}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_circle</span>
+                          <span>Start New Admission</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="metric-card-tile col-span-3">
                       <div className="metric-top">
                         <span className="title">Total Active Patients</span>
@@ -3867,6 +4196,191 @@ function App() {
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB 5: CLINICAL ADMIN & FACILITY SETTINGS */}
+              {activeTab === 'settings' && (
+                <div className="bento-grid">
+                  {/* Admin Settings Banner */}
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                          Clinical Administration
+                        </span>
+                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Facility & Practitioner Settings</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
+                          Configure facility protocols, practitioner credentials, EHR integrations, and security policies.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {[
+                          { label: 'Licensed Beds', value: '120', icon: 'local_hospital', bg: 'rgba(255,255,255,0.15)' },
+                          { label: 'Active Staff', value: '15 PT/OT', icon: 'badge', bg: 'rgba(34,197,94,0.2)' },
+                          { label: 'EHR Status', value: 'Syncing', icon: 'sync', bg: 'rgba(59,130,246,0.2)' },
+                        ].map(s => (
+                          <div key={s.label} style={{ background: s.bg, backdropFilter: 'blur(8px)', borderRadius: '14px', padding: '14px 18px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', minWidth: '95px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'rgba(255,255,255,0.9)', display: 'block', marginBottom: '3px' }}>{s.icon}</span>
+                            <strong style={{ fontSize: '1.15rem', fontWeight: 900, color: '#fff', display: 'block', lineHeight: 1 }}>{s.value}</strong>
+                            <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Settings Card Container */}
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                      <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>Practitioner Profile & Facility Preferences</h2>
+                      <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Logged in as lead clinical admin <strong>{sessionUser.name}</strong> ({sessionUser.specialization})</p>
+                    </div>
+
+                    {/* Section 1: Practitioner Credentials */}
+                    <div style={{ marginBottom: '32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#0f52ba' }}>badge</span>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Practitioner Credentials & Profile</h3>
+                      </div>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          setSessionUser(prev => ({
+                            ...prev,
+                            name: adminProfileForm.name,
+                            email: adminProfileForm.email,
+                            facility: adminProfileForm.facility,
+                            specialization: adminProfileForm.specialization
+                          }))
+                          triggerToast('Practitioner credentials & profile saved successfully!')
+                        }}
+                        style={{ background: '#f8fafc', borderRadius: '18px', padding: '22px', border: '1px solid #e2e8f0' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '20px' }}>
+                          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', fontWeight: 900, flexShrink: 0, boxShadow: '0 4px 14px rgba(15,82,186,0.3)' }}>
+                            {adminProfileForm.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{adminProfileForm.name}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{adminProfileForm.specialization} · NPI #1982349012</div>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                              <span style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: '50px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800 }}>Lead Practitioner</span>
+                              <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800 }}>Active License</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Practitioner Name</label>
+                            <input className="modern-input" value={adminProfileForm.name} onChange={e => setAdminProfileForm(a => ({ ...a, name: e.target.value }))} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Clinical Email</label>
+                            <input type="email" className="modern-input" value={adminProfileForm.email} onChange={e => setAdminProfileForm(a => ({ ...a, email: e.target.value }))} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Facility Name</label>
+                            <input className="modern-input" value={adminProfileForm.facility} onChange={e => setAdminProfileForm(a => ({ ...a, facility: e.target.value }))} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Specialization / Role</label>
+                            <input className="modern-input" value={adminProfileForm.specialization} onChange={e => setAdminProfileForm(a => ({ ...a, specialization: e.target.value }))} required />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <button type="submit" className="modern-submit-btn" style={{ width: 'auto', padding: '10px 24px', marginTop: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
+                            Save Practitioner Credentials
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Section 2: Clinical Protocol & Thresholds */}
+                    <div style={{ marginBottom: '32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#0f52ba' }}>tune</span>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Clinical Protocols & Alert Thresholds</h3>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {[
+                          { key: 'painAlert', label: 'Pain Score Alert Trigger', desc: 'Alert attending therapist immediately if post-session pain exceeds 6/10' },
+                          { key: 'autoFim', label: 'Auto-Schedule FIM Re-assessments', desc: 'Trigger FIM evaluation prompts automatically every 30 days of stay' },
+                          { key: 'rescheduleApprove', label: 'Patient Reschedule Approval', desc: 'Require clinical staff confirmation before patient reschedule requests take effect' },
+                          { key: 'physiatristSignoff', label: 'Discharge Summary Physiatrist Sign-Off', desc: 'Require digital signature from Lead Physiatrist prior to patient discharge' },
+                          { key: 'complianceAlert', label: 'Home Exercise Compliance Alerts', desc: 'Notify care team if patient skips prescribed exercises 2+ days consecutively' },
+                        ].map(config => {
+                          const isChecked = !!adminClinicalConfigs[config.key]
+                          return (
+                            <div key={config.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                              <div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{config.label}</div>
+                                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>{config.desc}</div>
+                              </div>
+                              <div
+                                onClick={() => {
+                                  setAdminClinicalConfigs(prev => ({ ...prev, [config.key]: !prev[config.key] }))
+                                  triggerToast(`Clinical protocol "${config.label}" ${!isChecked ? 'activated' : 'deactivated'}.`)
+                                }}
+                                style={{ width: '44px', height: '24px', borderRadius: '50px', background: isChecked ? '#0f52ba' : '#cbd5e1', padding: '3px', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                              >
+                                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'transform 0.2s', transform: isChecked ? 'translateX(20px)' : 'translateX(0)' }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Section 3: EHR / EMR Integration & Data Export */}
+                    <div style={{ marginBottom: '32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#0f52ba' }}>dns</span>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>EHR / EMR Integrations & HIPAA Compliance</h3>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                        <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '18px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '22px', color: '#0f52ba' }}>cloud_done</span>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>Epic Systems EMR Sync</div>
+                              <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, marginTop: '2px' }}>{lastEhrSync}</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setLastEhrSync('Syncing FHIR v4 API...')
+                              setTimeout(() => {
+                                setLastEhrSync('Connected & Live (Just now)')
+                                triggerToast('Epic Systems EHR FHIR v4 handshake verified!')
+                              }, 1200)
+                            }}
+                            style={{ background: '#fff', border: '1.5px solid #0f52ba', borderRadius: '50px', padding: '6px 14px', fontSize: '0.75rem', fontWeight: 800, color: '#0f52ba', cursor: 'pointer' }}
+                          >
+                            Re-sync API
+                          </button>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '18px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '22px', color: '#7c3aed' }}>security</span>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>HIPAA Audit Trail</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Encrypted AES-256 Logs</div>
+                            </div>
+                          </div>
+                          <button onClick={handleExportHipaaLogs} style={{ background: '#fff', border: '1.5px solid #cbd5e1', borderRadius: '50px', padding: '6px 14px', fontSize: '0.75rem', fontWeight: 800, color: '#475569', cursor: 'pointer' }}>Export Logs CSV</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </>
