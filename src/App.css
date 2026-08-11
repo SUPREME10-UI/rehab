@@ -14,9 +14,6 @@
   min-height: 100vh;
   display: flex;
   background-color: #0b1329;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(15, 82, 186, 0.25) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(0, 180, 216, 0.15) 0px, transparent 50%);
   color: #f8fafc;
 }
 
@@ -29,6 +26,22 @@
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.75), rgba(15, 82, 186, 0.40)),
+    linear-gradient(135deg, rgba(15, 82, 186, 0.24) 0%, transparent 45%),
+    url('https://images.unsplash.com/photo-1580281657521-7b5dbb851a03?auto=format&fit=crop&w=1500&q=80');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.auth-hero-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 35%),
+              radial-gradient(circle at bottom right, rgba(0, 0, 0, 0.45), transparent 30%);
+  pointer-events: none;
 }
 
 .auth-hero-brand {
@@ -54,16 +67,23 @@
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.03em;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
 }
 
 .brand-text p {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: #e2e8f0;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
 }
 
 .auth-hero-body {
   margin: 40px 0;
   max-width: 520px;
+  background: rgba(5, 15, 33, 0.7);
+  padding: 32px 36px;
+  border-radius: 28px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hero-pill-badge {
@@ -72,9 +92,9 @@
   gap: 8px;
   padding: 6px 14px;
   border-radius: var(--radius-full);
-  background: rgba(15, 82, 186, 0.2);
-  border: 1px solid rgba(15, 82, 186, 0.4);
-  color: #60a5fa;
+  background: rgba(15, 82, 186, 0.3);
+  border: 1px solid rgba(15, 82, 186, 0.55);
+  color: #dbeafe;
   font-size: 0.8rem;
   font-weight: 600;
   margin-bottom: 24px;
@@ -87,12 +107,14 @@
   color: #ffffff;
   margin-bottom: 16px;
   letter-spacing: -0.03em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
 }
 
 .auth-hero-body p {
   font-size: 1.05rem;
-  color: #94a3b8;
+  color: #f8fafc;
   line-height: 1.6;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.25);
 }
 
 .hero-feature-cards {

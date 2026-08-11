@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import './App.css'
+import rehabBg1 from './assets/rehab-bg-1.png'
 
 // =============================================================================
 // CustomSelect — Modal-style dropdown component
@@ -545,7 +546,16 @@ function App() {
 
     return (
       <div className="auth-wrapper">
-        <aside className="auth-hero-section">
+        <aside
+          className="auth-hero-section"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(11, 19, 41, 0.75), rgba(15, 82, 186, 0.30)), url('${rehabBg1}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundBlendMode: 'overlay'
+          }}
+        >
           <div className="auth-hero-brand">
             <div className="brand-logo-glow">
               <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>medical_services</span>
@@ -586,10 +596,6 @@ function App() {
             </div>
           </div>
 
-          <div className="auth-hero-footer">
-            <span className="material-symbols-outlined">lock</span>
-            HIPAA Compliant & Encrypted Clinical Data Storage
-          </div>
         </aside>
 
         <main className="auth-form-section">
@@ -2588,27 +2594,6 @@ function App() {
                             </p>
                           </div>
                         </div>
-                        <button
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 22px',
-                            borderRadius: '50px',
-                            border: 'none',
-                            background: '#ffffff',
-                            color: '#0f52ba',
-                            fontSize: '0.88rem',
-                            fontWeight: '800',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
-                            whiteSpace: 'nowrap'
-                          }}
-                          onClick={() => setActiveTab('add-patient')}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_circle</span>
-                          <span>Start New Admission</span>
-                        </button>
                       </div>
                     </div>
 
