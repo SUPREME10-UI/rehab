@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import './App.css'
 import rehabBg1 from './assets/rehab-bg-1.png'
+import Home from './Home'
 
 // =============================================================================
 // CustomSelect — Modal-style dropdown component
@@ -160,6 +161,12 @@ const SESSION_TYPE_COLORS = {
 }
 
 function App() {
+  // Check URL params for routing
+  const searchParams = new URLSearchParams(window.location.search)
+  const authParam = searchParams.get('auth')
+  
+  const [currentView, setCurrentView] = useState(authParam ? 'portal' : 'home')
+
   // Auth & User Session State — Default to Clinical Practitioner Admin Session
   const [sessionUser, setSessionUser] = useState({
     role: 'admin',
@@ -520,7 +527,8 @@ function App() {
 
   const handleSignOut = () => {
     setSessionUser(null)
-    setAuthMode('signup')
+    setAuthMode('login')
+    setCurrentView('home')
   }
 
   const currentPatient = adminPatients.find((p) => p.id === selectedPatientId) || adminPatients[0]
@@ -536,6 +544,26 @@ function App() {
 
   const handlePrintAssessment = () => {
     window.print()
+  }
+
+  // --------------------------------------------------------------------------
+  // RENDER: Public Landing Page
+  // --------------------------------------------------------------------------
+  if (currentView === 'home') {
+    return (
+      <Home
+        onOpenPortal={() => {
+          setPortalRole('client')
+          setCurrentView('portal')
+        }}
+        onLoginClick={(role) => {
+          setPortalRole(role || 'client')
+          setSessionUser(null)
+          setAuthMode('login')
+          setCurrentView('portal')
+        }}
+      />
+    )
   }
 
   // --------------------------------------------------------------------------
@@ -600,6 +628,26 @@ function App() {
 
         <main className="auth-form-section">
           <div className="auth-form-container animate-fade-in">
+            <button
+              type="button"
+              onClick={() => setCurrentView('home')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'transparent',
+                border: 'none',
+                color: '#003c90',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginBottom: '16px',
+                padding: '0'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+              Back to Home
+            </button>
             <div className="auth-header">
               {isClientPortal ? (
                 <>
@@ -1101,17 +1149,22 @@ function App() {
 
       {/* Shared Dark Sidebar Navigation */}
       <aside className={`portal-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-header">
+        <div
+          className="sidebar-header"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setCurrentView('home')}
+          title="Return to RehabConnect Home"
+        >
           <div className="sidebar-brand-icon">
             <span className="material-symbols-outlined">medical_services</span>
           </div>
           <div className="sidebar-brand-text">
-            <h2>RHMS</h2>
+            <h2>RehabConnect</h2>
             <p>{isClient ? 'Patient Portal' : 'Clinical Portal'}</p>
           </div>
           <button
             className="mobile-close-sidebar-btn"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(false); }}
           >
             <span className="material-symbols-outlined">close</span>
           </button>

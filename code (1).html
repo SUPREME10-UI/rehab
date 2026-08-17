@@ -205,6 +205,55 @@
             background-color: #c3c6d5;
             border-radius: 4px;
         }
+
+        .slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            overflow: hidden;
+            border-radius: 20px;
+            background: #e2e8f0;
+        }
+
+        .slide {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            inset: 0;
+            animation: fade 0.6s ease-in-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        .slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.55);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .dot.active {
+            background: white;
+            transform: scale(1.2);
+        }
+
+        @keyframes fade {
+            from { opacity: 0.35; }
+            to { opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-[#F8FAFC] text-on-surface font-body-md min-h-screen flex antialiased">
@@ -335,6 +384,38 @@
                     </button>
 </nav>
 </div>
+<!-- Slideshow -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+    <div class="slideshow-container">
+        <div class="slide active">
+            <img src="./public/images/slide1.jpg" alt="Rehab slide 1">
+        </div>
+        <div class="slide">
+            <img src="./public/images/slide2.jpg" alt="Rehab slide 2">
+        </div>
+        <div class="slide">
+            <img src="./public/images/slide3.jpg" alt="Rehab slide 3">
+        </div>
+        <div class="slide">
+            <img src="./public/images/slide4.jpg" alt="Rehab slide 4">
+        </div>
+
+        <button class="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/45 text-white rounded-full w-10 h-10 flex items-center justify-center z-10" type="button" aria-label="Previous slide" onclick="changeSlide(-1)">
+            <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <button class="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/45 text-white rounded-full w-10 h-10 flex items-center justify-center z-10" type="button" aria-label="Next slide" onclick="changeSlide(1)">
+            <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+            <button class="dot active" type="button" aria-label="Go to slide 1" onclick="showSlide(0)"></button>
+            <button class="dot" type="button" aria-label="Go to slide 2" onclick="showSlide(1)"></button>
+            <button class="dot" type="button" aria-label="Go to slide 3" onclick="showSlide(2)"></button>
+            <button class="dot" type="button" aria-label="Go to slide 4" onclick="showSlide(3)"></button>
+        </div>
+    </div>
+</div>
+
 <!-- Main Workspace Area -->
 <div class="flex gap-lg flex-1 h-[600px] min-h-0">
 <!-- Left: Exercise Library (Bento style panel) -->
@@ -493,4 +574,31 @@
 </div>
 </div>
 </main>
+<script>
+    let slideIndex = 0;
+    let slideTimer;
+    const slides = document.querySelectorAll('.slide');
+    const dots = document.querySelectorAll('.dot');
+
+    function showSlide(index) {
+        slideIndex = (index + slides.length) % slides.length;
+
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('active', i === slideIndex);
+        });
+
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === slideIndex);
+        });
+    }
+
+    function changeSlide(direction) {
+        clearTimeout(slideTimer);
+        showSlide(slideIndex + direction);
+        slideTimer = setTimeout(() => changeSlide(1), 5000);
+    }
+
+    showSlide(0);
+    slideTimer = setTimeout(() => changeSlide(1), 5000);
+</script>
 </body></html>
