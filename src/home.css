@@ -1,6 +1,23 @@
 /* RehabConnect Landing Page Styles - Pixel-Perfect Design */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
 
 :root {
   --rc-primary: #003c90;
@@ -61,15 +78,13 @@
   cursor: pointer;
 }
 
-.rc-brand-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--rc-primary);
-  font-size: 26px;
+.rc-brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 60, 144, 0.15);
 }
 
 .rc-brand-title {
@@ -365,9 +380,9 @@
 }
 
 .rc-indicator-pill {
-  width: 36px;
-  height: 5px;
-  border-radius: 999px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background-color: #ffffff;
   opacity: 0.45;
   border: none;
@@ -382,7 +397,8 @@
 
 .rc-indicator-pill.active {
   opacity: 1;
-  width: 44px;
+  width: 10px;
+  height: 10px;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1181,6 +1197,14 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.rc-footer-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .rc-footer-brand-title {

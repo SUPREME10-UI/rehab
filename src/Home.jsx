@@ -306,9 +306,7 @@ export default function Home({ onOpenPortal, onLoginClick }) {
       {/* ==================================================================== */}
       <header className="rc-header">
         <div className="rc-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className="rc-brand-icon">
-            <span className="material-symbols-outlined">medical_services</span>
-          </div>
+          <img src="/images/logo.png" alt="RehabConnect Logo" className="rc-brand-logo" />
           <span className="rc-brand-title">RehabConnect</span>
         </div>
 
@@ -320,12 +318,6 @@ export default function Home({ onOpenPortal, onLoginClick }) {
         </nav>
 
         <div className="rc-header-actions">
-          <button className="rc-icon-btn" aria-label="Notifications">
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
-          <button className="rc-icon-btn" aria-label="History">
-            <span className="material-symbols-outlined">history</span>
-          </button>
           <button className="rc-login-btn" onClick={handlePortalAction}>
             Patient Portal Login
           </button>
@@ -675,7 +667,7 @@ export default function Home({ onOpenPortal, onLoginClick }) {
                   <div className="rc-side-info">
                     <span
                       className="rc-side-tag"
-                      style={{ backgroundColor: article.categoryBg, color: article.categoryColor }}
+                      style={{ color: article.categoryColor }}
                     >
                       {article.category}
                     </span>
@@ -814,9 +806,7 @@ export default function Home({ onOpenPortal, onLoginClick }) {
             {/* Column 1: Brand */}
             <div>
               <div className="rc-footer-brand">
-                <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#93c5fd' }}>
-                  medical_services
-                </span>
+                <img src="/images/logo.png" alt="RehabConnect Logo" className="rc-footer-logo" />
                 <span className="rc-footer-brand-title">RehabConnect</span>
               </div>
               <p className="rc-footer-about">

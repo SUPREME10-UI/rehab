@@ -585,8 +585,8 @@ function App() {
           }}
         >
           <div className="auth-hero-brand">
-            <div className="brand-logo-glow">
-              <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>medical_services</span>
+            <div className="brand-logo-glow" style={{ padding: '4px' }}>
+              <img src="/images/logo.png" alt="RehabConnect Logo" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} />
             </div>
             <div className="brand-text">
               <h1>RHMS</h1>
@@ -1155,8 +1155,8 @@ function App() {
           onClick={() => setCurrentView('home')}
           title="Return to RehabConnect Home"
         >
-          <div className="sidebar-brand-icon">
-            <span className="material-symbols-outlined">medical_services</span>
+          <div className="sidebar-brand-icon" style={{ background: 'transparent' }}>
+            <img src="/images/logo.png" alt="RehabConnect Logo" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
           </div>
           <div className="sidebar-brand-text">
             <h2>RehabConnect</h2>
