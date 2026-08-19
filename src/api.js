@@ -46,6 +46,16 @@ export const api = {
     body: JSON.stringify(payload)
   }),
 
+  forgotPassword: (email) => request('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  }),
+
+  resetPassword: (payload) => request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
+
   getCurrentUser: (userId = 1) => request(`/auth/me?userId=${userId}`),
 
   // Patients

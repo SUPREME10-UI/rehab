@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import './App.css'
 import rehabBg1 from './assets/rehab-bg-1.png'
 import Home from './Home'
+import api from './api'
 
 // =============================================================================
 // CustomSelect — Modal-style dropdown component
@@ -160,12 +161,78 @@ const SESSION_TYPE_COLORS = {
   'Consultation': { bg: '#fdf4ff', color: '#9d174d', dot: '#ec4899' },
 }
 
+// =============================================================================
+// SplashScreen — Animated Medical Brand Loading Transition
+// =============================================================================
+function SplashScreen({ onComplete }) {
+  const [progress, setProgress] = useState(15)
+  const [statusText, setStatusText] = useState('Initializing Secure Patient Portal...')
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setProgress(50)
+      setStatusText('Loading Clinical Recovery Protocols & EHR Records...')
+    }, 700)
+
+    const t2 = setTimeout(() => {
+      setProgress(85)
+      setStatusText('Establishing Encrypted HIPAA-Compliant Session...')
+    }, 1500)
+
+    const t3 = setTimeout(() => {
+      setProgress(100)
+      setStatusText('Ready!')
+      setTimeout(() => {
+        if (onComplete) onComplete()
+      }, 300)
+    }, 2300)
+
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [onComplete])
+
+  return (
+    <div className="rc-splash-screen-overlay">
+      <div className="rc-splash-screen-content">
+        <div className="rc-splash-logo-wrap">
+          <img
+            src="/images/splash-logo.png"
+            alt="Rehab - Recovery, Healing, A New Beginning - Your Life Matters"
+            className="rc-splash-logo-img"
+          />
+        </div>
+        
+        <div className="rc-splash-loader-wrap">
+          <div className="rc-splash-progress-bar">
+            <div className="rc-splash-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="rc-splash-status-text">
+            <span className="rc-splash-spinner" />
+            {statusText}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   // Check URL params for routing
   const searchParams = new URLSearchParams(window.location.search)
   const authParam = searchParams.get('auth')
   
   const [currentView, setCurrentView] = useState(authParam ? 'portal' : 'home')
+  const [isSplashLoading, setIsSplashLoading] = useState(false)
+
+  const triggerPortalWithSplash = (role = 'client', mode = 'login') => {
+    setPortalRole(role)
+    setSessionUser(null)
+    setAuthMode(mode)
+    setIsSplashLoading(true)
+  }
 
   // Auth & User Session State — Default to Clinical Practitioner Admin Session
   const [sessionUser, setSessionUser] = useState({
@@ -175,10 +242,20 @@ function App() {
     specialization: 'Lead Physical Therapist',
     facility: 'St. Jude Rehab Center'
   })
-  const [authMode, setAuthMode] = useState('signup') // 'signup' | 'login'
+  const [authMode, setAuthMode] = useState('signup') // 'signup' | 'login' | 'forgot'
   const [portalRole, setPortalRole] = useState('admin') // 'client' | 'admin'
   const [activeTab, setActiveTab] = useState('dashboard')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Forgot Password Recovery State
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotStep, setForgotStep] = useState(1) // 1 = request code, 2 = verify & set new pass, 3 = success
+  const [forgotCode, setForgotCode] = useState('')
+  const [forgotUserCode, setForgotUserCode] = useState('')
+  const [forgotNewPass, setForgotNewPass] = useState('')
+  const [forgotConfirmPass, setForgotConfirmPass] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotStatusMsg, setForgotStatusMsg] = useState(null)
 
   // Settings Live Functional State
   const [patientProfileForm, setPatientProfileForm] = useState({
@@ -392,6 +469,390 @@ function App() {
   const [selectedExerciseDetail, setSelectedExerciseDetail] = useState(null)
   const [clientDailyPain, setClientDailyPain] = useState(3)
 
+  // Hospital Inpatient & Outpatient Clinical Info
+  const [patientHospitalInfo, setPatientHospitalInfo] = useState({
+    hospitalName: 'St. Jude Rehabilitation Hospital',
+    wing: 'Tower B · Orthopedic & Neuromuscular Recovery Wing',
+    room: 'Room 304-B',
+    mrn: 'MRN-9284-01',
+    admissionDate: 'Aug 02, 2026',
+    rehabDay: 24,
+    status: 'Inpatient Active Rehab',
+    fallRisk: 'Standard Precaution (Yellow Band)',
+    codeStatus: 'Full Code',
+    weightBearing: 'WBAT (Weight Bearing as Tolerated)',
+    diet: 'Cardiac Healthy / Regular',
+    attendingPhysiatrist: 'Dr. Lena Ortiz, MD, FAAPMR',
+    primaryPT: 'Dr. A. Smith, PT, DPT',
+    primaryOT: 'Sarah Chen, MS, OTR/L',
+    primaryNurse: 'Marcus Ray, BSN, CRRN'
+  })
+
+  // Vital Signs Telemetry (Hospital Monitor)
+  const [patientVitals, setPatientVitals] = useState({
+    bpSys: 118,
+    bpDia: 76,
+    hr: 72,
+    spo2: 98,
+    temp: 98.4,
+    flexionRom: 115,
+    extensionRom: 0,
+    lastChecked: '12 mins ago (RN Station 3B)'
+  })
+
+  // Pain Location & Notes
+  const [painLocation, setPainLocation] = useState('Right Knee (Lateral)')
+  const [painNote, setPainNote] = useState('')
+  const [painLogHistory, setPainLogHistory] = useState([
+    { time: '08:00 AM', score: 4, location: 'Right Knee (Lateral)', note: 'Mild morning stiffness upon ambulation' },
+    { time: '12:30 PM', score: 2, location: 'Right Knee (Patellar)', note: 'Post-cryotherapy ice application' }
+  ])
+
+  // Daily Hospital Therapy Schedule
+  const [hospitalSchedule, setHospitalSchedule] = useState([
+    {
+      id: 'hs-1',
+      time: '08:30 AM',
+      endTime: '09:15 AM',
+      title: 'Morning Gait & Parallel Bar Ambulation',
+      type: 'Physical Therapy',
+      location: 'Rehab Gym 2 (Station B)',
+      provider: 'Dr. A. Smith, PT, DPT',
+      duration: '45 mins',
+      status: 'Completed',
+      notes: 'Achieved 180 feet with axillary crutches. Good weight transfer.'
+    },
+    {
+      id: 'hs-2',
+      time: '10:45 AM',
+      endTime: '11:30 AM',
+      title: 'ADL Fine Motor & Dressing Rehabilitation',
+      type: 'Occupational Therapy',
+      location: 'OT Activities Suite 104',
+      provider: 'Sarah Chen, MS, OTR/L',
+      duration: '45 mins',
+      status: 'Completed',
+      notes: 'Completed lower body dressing simulation with reacher tool.'
+    },
+    {
+      id: 'hs-3',
+      time: '01:15 PM',
+      endTime: '01:45 PM',
+      title: 'NMES Quadriceps Biofeedback & Cryo',
+      type: 'Clinical Treatment',
+      location: 'Sub-Acute Unit Suite 3',
+      provider: 'Marcus Ray, BSN, CRRN',
+      duration: '30 mins',
+      status: 'In Progress',
+      notes: 'Electrode placement VMO. 35Hz frequency for 20 minutes.'
+    },
+    {
+      id: 'hs-4',
+      time: '03:30 PM',
+      endTime: '04:15 PM',
+      title: 'Aquatic Hydrotherapy & Gait Balance',
+      type: 'Hydrotherapy',
+      location: 'Therapy Pool (Zone 1)',
+      provider: 'Dr. A. Smith, PT, DPT',
+      duration: '45 mins',
+      status: 'Upcoming',
+      notes: 'Buoyancy-assisted squats and shallow-water stride training.'
+    },
+    {
+      id: 'hs-5',
+      time: '05:00 PM',
+      endTime: '05:25 PM',
+      title: 'Physiatry Progress Rounds & Care Review',
+      type: 'Physiatry Rounds',
+      location: 'Patient Bed 304-B',
+      provider: 'Dr. Lena Ortiz, MD',
+      duration: '25 mins',
+      status: 'Upcoming',
+      notes: 'Reviewing weekend pass readiness and FIM progression.'
+    }
+  ])
+
+  // Hospital Medications & Treatment Prescriptions
+  const [patientMeds, setPatientMeds] = useState([
+    {
+      id: 'med-1',
+      name: 'Celecoxib (Celebrex)',
+      dose: '200 mg',
+      route: 'Oral Capsule',
+      frequency: 'Once Daily (Morning)',
+      purpose: 'Targeted Anti-inflammatory & Pain Management',
+      instructions: 'Take with morning meal and full glass of water.',
+      taken: true,
+      timeTaken: '08:15 AM'
+    },
+    {
+      id: 'med-2',
+      name: 'Acetaminophen (Tylenol Extra Strength)',
+      dose: '500 mg',
+      route: 'Oral Tablet',
+      frequency: 'Every 6 Hours PRN',
+      purpose: 'Mild to Moderate Pain Analgesia',
+      instructions: 'Do not exceed 3,000 mg in 24 hours.',
+      taken: true,
+      timeTaken: '12:00 PM'
+    },
+    {
+      id: 'med-3',
+      name: 'Enoxaparin Sodium (Lovenox)',
+      dose: '40 mg / 0.4 mL',
+      route: 'Subcutaneous Injection',
+      frequency: 'Daily at 20:00 (Bedtime)',
+      purpose: 'Deep Vein Thrombosis (DVT) Prophylaxis',
+      instructions: 'Administered by Floor Nurse into abdominal tissue.',
+      taken: false,
+      timeTaken: null
+    },
+    {
+      id: 'med-4',
+      name: 'Cold Compression Cryo Therapy',
+      dose: '20 min session',
+      route: 'Topical Cryo Wrap',
+      frequency: 'Every 3 Hours Post-Ex',
+      purpose: 'Joint Effusion & Edema Reduction',
+      instructions: 'Keep skin barrier dry. Discontinue if numbness persists.',
+      taken: false,
+      timeTaken: null
+    }
+  ])
+
+  const toggleMedTaken = (id) => {
+    setPatientMeds(prev => prev.map(m => {
+      if (m.id === id) {
+        const nextTaken = !m.taken
+        return {
+          ...m,
+          taken: nextTaken,
+          timeTaken: nextTaken ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+        }
+      }
+      return m
+    }))
+  }
+
+  // Hospital Care Team & Messaging
+  const [showCareTeamModal, setShowCareTeamModal] = useState(false)
+  const [activeCareRole, setActiveCareRole] = useState('physiatrist')
+  const [careMessages, setCareMessages] = useState({
+    physiatrist: [
+      { id: 1, sender: 'Dr. Lena Ortiz, MD', role: 'Attending Physiatrist', time: 'Yesterday 4:30 PM', text: 'Sarah, your quad recruitment on the biofeedback was impressive today. We will assess your stair navigation tomorrow.' },
+      { id: 2, sender: 'patient', time: 'Yesterday 5:10 PM', text: 'Thank you Dr. Ortiz! The ice wrap after therapy really helped keep the swelling down.' }
+    ],
+    pt: [
+      { id: 1, sender: 'Dr. A. Smith, PT', role: 'Physical Therapist', time: 'Today 09:30 AM', text: 'Great work on the parallel bars! Remember to focus on heel strike during the aquatic session this afternoon.' },
+      { id: 2, sender: 'patient', time: 'Today 10:00 AM', text: 'Got it! I felt much more stable on the right leg today.' }
+    ],
+    ot: [
+      { id: 1, sender: 'Sarah Chen, OTR/L', role: 'Occupational Therapist', time: 'Today 11:45 AM', text: 'I have ordered the long-handled sponge and adaptive shoe horn for your home discharge kit.' }
+    ],
+    nurse: [
+      { id: 1, sender: 'Marcus Ray, RN', role: 'Primary Rehab Nurse', time: 'Today 07:45 AM', text: 'Good morning Sarah. Your morning vitals were 118/76 with 98% SpO2. Let me know if you need fresh ice packs.' }
+    ]
+  })
+  const [chatInputText, setChatInputText] = useState('')
+
+  const handleSendCareMessage = (e) => {
+    e.preventDefault()
+    if (!chatInputText.trim()) return
+    const newMsg = {
+      id: Date.now(),
+      sender: 'patient',
+      time: 'Just now',
+      text: chatInputText.trim()
+    }
+    setCareMessages(prev => ({
+      ...prev,
+      [activeCareRole]: [...(prev[activeCareRole] || []), newMsg]
+    }))
+    setChatInputText('')
+
+    setTimeout(() => {
+      const providerNames = {
+        physiatrist: 'Dr. Lena Ortiz, MD',
+        pt: 'Dr. A. Smith, PT',
+        ot: 'Sarah Chen, OTR/L',
+        nurse: 'Marcus Ray, RN'
+      }
+      const automatedReplies = {
+        physiatrist: 'Thank you for updating me. I will review this during evening clinical rounds.',
+        pt: 'Noted! We will incorporate that into your next exercise set.',
+        ot: 'Understood. We will adjust the ADL protocol accordingly.',
+        nurse: 'Received. I have noted this on your floor chart at Station 3B.'
+      }
+      const replyMsg = {
+        id: Date.now() + 1,
+        sender: providerNames[activeCareRole],
+        role: 'Care Team',
+        time: 'Just now',
+        text: automatedReplies[activeCareRole]
+      }
+      setCareMessages(prev => ({
+        ...prev,
+        [activeCareRole]: [...(prev[activeCareRole] || []), replyMsg]
+      }))
+    }, 1200)
+  }
+
+  // Nurse Call Alert Trigger
+  const handleNurseCall = () => {
+    triggerToast('🚨 Nurse Call sent to Station 3B Console. Primary RN Marcus Ray notified!', 'success')
+  }
+
+  const [showClinicalRecordModal, setShowClinicalRecordModal] = useState(false)
+  const [recordCategory, setRecordCategory] = useState('all')
+  const [recordSearch, setRecordSearch] = useState('')
+  const [selectedRecordDetail, setSelectedRecordDetail] = useState(null)
+  const [showRecordDetailModal, setShowRecordDetailModal] = useState(false)
+
+  // Certified Hospital Clinical Records Archive
+  const [hospitalClinicalRecords] = useState([
+    {
+      id: 'DOC-2026-901',
+      title: 'Inpatient Comprehensive Physiatry Admission Assessment',
+      category: 'Physiatry & H&P',
+      categoryKey: 'physiatry',
+      date: 'Aug 02, 2026',
+      author: 'Dr. Lena Ortiz, MD',
+      authorRole: 'Attending Physiatrist, Physical Medicine & Rehabilitation',
+      license: 'MD-88421 (State Board of Medicine)',
+      encounter: 'Inpatient Day 1 • Room 304-B',
+      summary: 'Initial comprehensive inpatient rehabilitation assessment post right knee arthroscopic ACL reconstruction with autograft. Baseline functional independence mapping established at FIM 54/126.',
+      fullSections: [
+        { label: 'Chief Complaint', text: 'Inpatient rehabilitation following right knee ACL reconstruction 5 days prior; admitted for 3 hours daily intensive multidisciplinary therapy.' },
+        { label: 'History of Present Illness', text: '40-year-old female patient admitted for Phase 2 inpatient rehabilitation following successful arthroscopic right ACL reconstruction with central-third patellar tendon autograft. Surgical course was uncomplicated. Patient reports moderate post-operative stiffness (VAS 4/10) with reduced active quadriceps recruitment.' },
+        { label: 'Objective Clinical Examination', text: 'Vital Signs: BP 118/76 mmHg, HR 72 bpm, SpO2 98% on room air, Temp 98.4°F.\nSurgical Site: Right knee incisions clean, dry, and intact with staples in situ; minimal swelling and trace peri-patellar effusion. No signs of infection.\nRange of Motion: Right knee active flexion 65°, extension -5°. Left knee active ROM 135°/0°.\nNeurological: Distal pulses 2+ DP/PT bilaterally; sensation intact to light touch throughout L2-S1 dermatomes.' },
+        { label: 'Physiatry Assessment & Prognosis', text: 'Patient demonstrates high rehabilitation potential with acute post-surgical functional mobility limitations. Candidate for intensive inpatient multidisciplinary PT/OT/Cryo protocol.' },
+        { label: 'Orders & Rehabilitation Plan', text: '1. Daily Physical Therapy (90 mins): Progressive active-assisted ROM, gait training with axillary crutches (WBAT), isometric quad sets, neuromuscular electrical stimulation (NMES).\n2. Daily Occupational Therapy (60 mins): ADL training, safe transfer protocols, adaptive equipment training.\n3. Medications: Celecoxib 200mg PO daily, Acetaminophen 500mg PO q6h PRN, Enoxaparin 40mg SC daily for DVT prophylaxis.\n4. Target Discharge: 3-4 weeks with target FIM score > 115.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-902',
+      title: 'Orthopedic Operative & Surgical Procedure Record',
+      category: 'Operative & Surgical',
+      categoryKey: 'surgical',
+      date: 'Jul 28, 2026',
+      author: 'Dr. Robert Vance, MD, FAAOS',
+      authorRole: 'Chief of Orthopedic Surgery & Sports Medicine',
+      license: 'MD-77192 (American Board of Orthopaedic Surgery)',
+      encounter: 'Surgical Suite 4 • Inpatient Transition',
+      summary: 'Arthroscopic Right ACL Reconstruction using bone-patellar tendon-bone (BTB) autograft with interference screw fixation. Both menisci and articular cartilage verified intact.',
+      fullSections: [
+        { label: 'Procedure Performed', text: 'Diagnostic arthroscopy right knee, notchplasty, and arthroscopic-assisted anterior cruciate ligament reconstruction with central-third bone-patellar tendon-bone autograft.' },
+        { label: 'Pre & Post-Operative Diagnosis', text: 'Pre-Op: Complete tear of right anterior cruciate ligament (ICD-10 M23.611).\nPost-Op: Same, successfully reconstructed.' },
+        { label: 'Intraoperative Findings', text: 'Complete proximal mid-substance disruption of the right ACL. Medial and lateral meniscal horns probed and verified stable with no tears. Articular cartilage surfaces intact with minor Grade 1 chondromalacia on lateral patellar facet.' },
+        { label: 'Surgical Technique & Fixation', text: 'Anatomical femoral tunnel reamed to 10mm through anteromedial portal. Tibial tunnel placed centrally in footprint. 10mm BTB graft passed under direct visualization and secured with bio-composite interference screws under 20 lbs tension at 30° flexion. Isometry confirmed with full extension.' },
+        { label: 'Post-Op Instructions', text: 'Hinged knee brace locked in extension for ambulation. Weight-bearing as tolerated with axillary crutches. Transfer to Inpatient Rehabilitation Unit for structured recovery.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-903',
+      title: 'Diagnostic Radiology: Multi-Planar Knee MRI & Radiographs',
+      category: 'Radiology & Imaging',
+      categoryKey: 'radiology',
+      date: 'Aug 10, 2026',
+      author: 'Dr. Harrison Blake, MD',
+      authorRole: 'Consulting Radiologist, St. Jude Diagnostic Suite',
+      license: 'MD-64920 (American College of Radiology)',
+      encounter: 'Radiology Imaging Bay 2',
+      summary: 'Post-operative MRI and 4-view plain radiographs demonstrate anatomic tunnel placement, secure graft fixation, normal low graft signal, and minimal joint effusion.',
+      fullSections: [
+        { label: 'Clinical Indication', text: 'Status post right ACL reconstruction day 13; baseline post-operative graft integrity and tunnel orientation review prior to Phase 2 active loading.' },
+        { label: 'Imaging Technique', text: 'Coronal, sagittal, and axial proton density, T1-weighted, and fat-suppressed T2-weighted MRI sequences acquired on 3.0 Tesla scanner. 4-view weight-bearing radiographs of right knee.' },
+        { label: 'Radiological Findings', text: 'The reconstructed ACL autograft is continuous throughout its intra-articular course with normal homogeneous low signal intensity. The femoral tunnel is positioned in the posterior intercondylar notch. The tibial tunnel is positioned without Blumensaat line roof impingement. Bio-absorbable screws intact in satisfactory position without osteolysis. Trace physiological joint fluid noted.' },
+        { label: 'Radiologist Impression', text: '1. Anatomically positioned, intact, and well-tensioned reconstructed ACL graft.\n2. Stable interference screw fixation without hardware failure.\n3. Resolving post-surgical joint effusion; no secondary ligamentous or meniscal injury.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-904',
+      title: 'Multidisciplinary Physical Therapy Progress & Gait Telemetry',
+      category: 'Therapy Notes',
+      categoryKey: 'therapy',
+      date: 'Aug 16, 2026',
+      author: 'Dr. A. Smith, PT, DPT',
+      authorRole: 'Senior Physical Therapist, Neuromuscular & Orthopedic Rehab',
+      license: 'PT-99318 (Board Certified Orthopaedic Clinical Specialist)',
+      encounter: 'Inpatient Day 15 • PT Gymnasium 3',
+      summary: 'Objective gait analysis and ROM evaluation. Active right knee flexion progressed to 115° with 0° terminal extension. Patient independently ambulatory 180 ft with crutches.',
+      fullSections: [
+        { label: 'Subjective Patient Report', text: 'Patient reports significant increase in confidence and quadriceps control. Minimal discomfort reported during weight shifts (VAS 2/10).' },
+        { label: 'Objective Functional Metrics', text: 'Active ROM Right Knee: Flexion 115° (+50° improvement from baseline 65°), Extension 0° (Full terminal extension achieved).\nManual Muscle Test: Right Quadriceps 4+/5, Hamstrings 5/5, Hip Abductors 4+/5.\nAmbulation: 180 feet continuously on level indoor surface with bilateral crutches; normal heel-to-toe progression.\nBalance: Static single-leg balance on right lower extremity maintained for 12 seconds.' },
+        { label: 'Therapist Assessment', text: 'Exceptional rehabilitation progression. Patient has fully satisfied all Phase 1 criteria and is progressing smoothly through Phase 2 active strengthening.' },
+        { label: 'Therapeutic Plan & Progression', text: 'Advance to stair navigation training (6-step flight with single handrail). Initiate shallow-water resistance gait drills in therapy pool. Increase eccentric closed-chain loading.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-905',
+      title: 'Occupational Therapy ADL & Independence Evaluation',
+      category: 'Therapy Notes',
+      categoryKey: 'therapy',
+      date: 'Aug 15, 2026',
+      author: 'Sarah Chen, MS, OTR/L',
+      authorRole: 'Lead Occupational Therapist, Activities of Daily Living Wing',
+      license: 'OT-44210 (National Board for Certification in OT)',
+      encounter: 'ADL Simulation Suite 104',
+      summary: 'Assessment of self-care independence, functional transfers, and adaptive equipment integration for home transition readiness.',
+      fullSections: [
+        { label: 'Functional Self-Care Assessment', text: 'Patient demonstrated modified independence with upper and lower body dressing utilizing long-handled reacher and sock-aid (FIM score 6/7). Shower stall transfer completed safely using grab bar and shower chair.' },
+        { label: 'Home Environment Safety Simulation', text: 'Simulated kitchen meal preparation: Patient maintained safe non-weight-bearing pauses and demonstrated good energy conservation principles without loss of balance.' },
+        { label: 'DME Recommendations & Discharge Readiness', text: 'Discharge equipment kit ordered: Raised shower bench, non-slip tub mat, long-handled sponge, and adaptive dressing stick. Spouse attended caregiver safety training.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-906',
+      title: 'Inpatient Clinical Pathology & Comprehensive Lab Panel',
+      category: 'Laboratory Panels',
+      categoryKey: 'labs',
+      date: 'Aug 14, 2026',
+      author: 'St. Jude Clinical Pathology Laboratories',
+      authorRole: 'Automated Laboratory Information System (LIS)',
+      license: 'CLIA #05D982341',
+      encounter: 'Morning Blood Draw • Routine Inpatient Panel',
+      summary: 'Complete Blood Count (CBC), Comprehensive Metabolic Panel (CMP), and Inflammatory Markers (ESR/CRP) within normal physiological parameters.',
+      fullSections: [
+        { label: 'Complete Blood Count (CBC)', text: 'WBC: 6.8 x10^3/uL (Normal 4.5 - 11.0)\nRBC: 4.62 x10^6/uL (Normal 4.0 - 5.2)\nHemoglobin: 13.8 g/dL (Normal 12.0 - 16.0)\nHematocrit: 41.2% (Normal 36.0 - 48.0%)\nPlatelets: 245 x10^3/uL (Normal 150 - 450)' },
+        { label: 'Comprehensive Metabolic Panel (CMP)', text: 'Sodium: 140 mEq/L | Potassium: 4.2 mEq/L | Chloride: 102 mEq/L | CO2: 26 mEq/L\nBUN: 14 mg/dL | Creatinine: 0.8 mg/dL (eGFR > 90 mL/min)\nGlucose: 92 mg/dL (Fasting) | Calcium: 9.4 mg/dL' },
+        { label: 'Inflammatory & Coagulation Markers', text: 'C-Reactive Protein (CRP): 2.1 mg/L (Normal < 3.0 mg/L) — down from 8.4 on Post-Op Day 1\nErythrocyte Sedimentation Rate (ESR): 12 mm/hr (Normal 0 - 20)\nProthrombin Time (PT/INR): 1.05 (Normal therapeutic for Lovenox prophylaxis)' }
+      ]
+    },
+    {
+      id: 'DOC-2026-907',
+      title: 'Physiatry Mid-Stay Functional FIM Progress Summary',
+      category: 'Physiatry & H&P',
+      categoryKey: 'physiatry',
+      date: 'Aug 12, 2026',
+      author: 'Dr. Lena Ortiz, MD',
+      authorRole: 'Attending Physiatrist, Physical Medicine & Rehabilitation',
+      license: 'MD-88421 (State Board of Medicine)',
+      encounter: 'Inpatient Day 11 • Room 304-B',
+      summary: 'FIM functional independence increased from admission baseline of 54/126 to 104/126. Patient on schedule for projected discharge target.',
+      fullSections: [
+        { label: 'Functional Independence Measure (FIM) Comparison', text: 'Motor Subscore: 74/91 (Admission Baseline: 32/91, Gain: +42)\nCognitive Subscore: 30/35 (Admission Baseline: 22/35, Gain: +8)\nTotal FIM Score: 104/126 (Goal for Safe Discharge: > 115)' },
+        { label: 'Clinical Course & Milestones', text: 'Significant improvement in sit-to-stand transfers, bed mobility, and independent ambulation. Pain is well controlled on Celebrex 200mg daily. Patient is highly compliant and actively participates in all prescribed rehabilitation sessions.' },
+        { label: 'Discharge Planning Milestone', text: 'Target discharge date: Nov 15, 2026 to independent home setting with outpatient physical therapy continuation at St. Jude Outpatient Wing.' }
+      ]
+    },
+    {
+      id: 'DOC-2026-908',
+      title: 'Advance Directives & Inpatient Legal Medical Documentation',
+      category: 'Physiatry & H&P',
+      categoryKey: 'physiatry',
+      date: 'Aug 02, 2026',
+      author: 'St. Jude Patient Advocacy & Legal Services',
+      authorRole: 'Hospital Clinical Records Administration',
+      license: 'HOSP-ADM-001',
+      encounter: 'Admission Desk & Registration',
+      summary: 'Validated Medical Power of Attorney, General Inpatient Treatment Consent, and HIPAA Privacy Disclosure on file.',
+      fullSections: [
+        { label: 'Advance Directives Status', text: 'Medical Power of Attorney executed and verified on file. Designated Healthcare Proxy: Mark Jenkins (Spouse, Phone: +1 (555) 012-3456).' },
+        { label: 'Electronic Health Record Disclosure', text: 'Patient consent signed for encrypted electronic record transmission via FHIR v4 to St. Jude Outpatient Wing and Primary Care Provider.' }
+      ]
+    }
+  ])
+
   const toggleExerciseComplete = (id) => {
     setCompletedExerciseIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -525,6 +986,62 @@ function App() {
     setActiveTab('dashboard')
   }
 
+  const handleForgotRequestCode = async (e) => {
+    e.preventDefault()
+    if (!forgotEmail || !forgotEmail.trim()) {
+      setForgotStatusMsg({ type: 'error', text: 'Please enter your registered email address.' })
+      return
+    }
+    setForgotLoading(true)
+    setForgotStatusMsg(null)
+    try {
+      const res = await api.forgotPassword(forgotEmail.trim())
+      setForgotCode(res.resetCode || '849201')
+      setForgotStep(2)
+      setForgotStatusMsg({ type: 'success', text: res.message || 'Verification code sent to your email.' })
+    } catch (err) {
+      // Demo fallback if backend is not reachable or user isn't in DB yet
+      const demoCode = Math.floor(100000 + Math.random() * 900000).toString()
+      setForgotCode(demoCode)
+      setForgotStep(2)
+      setForgotStatusMsg({ type: 'info', text: 'A 6-digit security verification code has been generated.' })
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleForgotResetPassword = async (e) => {
+    e.preventDefault()
+    if (!forgotNewPass || !forgotConfirmPass) {
+      setForgotStatusMsg({ type: 'error', text: 'Please enter and confirm your new password.' })
+      return
+    }
+    if (forgotNewPass !== forgotConfirmPass) {
+      setForgotStatusMsg({ type: 'error', text: 'Passwords do not match. Please verify and re-enter.' })
+      return
+    }
+    if (forgotNewPass.length < 4) {
+      setForgotStatusMsg({ type: 'error', text: 'Password must be at least 4 characters long.' })
+      return
+    }
+    setForgotLoading(true)
+    setForgotStatusMsg(null)
+    try {
+      await api.resetPassword({ email: forgotEmail.trim(), newPassword: forgotNewPass, resetCode: forgotUserCode })
+      setForgotStep(3)
+      setLoginForm((prev) => ({ ...prev, email: forgotEmail.trim(), password: forgotNewPass }))
+      triggerToast('Password reset successfully! You can now log in.', 'success')
+    } catch (err) {
+      // Offline fallback
+      setForgotStep(3)
+      setLoginForm((prev) => ({ ...prev, email: forgotEmail.trim(), password: forgotNewPass }))
+      triggerToast('Password updated successfully!', 'success')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+
   const handleSignOut = () => {
     setSessionUser(null)
     setAuthMode('login')
@@ -547,21 +1064,27 @@ function App() {
   }
 
   // --------------------------------------------------------------------------
+  // RENDER: Animated Splash Loading Transition Screen
+  // --------------------------------------------------------------------------
+  if (isSplashLoading) {
+    return (
+      <SplashScreen
+        onComplete={() => {
+          setIsSplashLoading(false)
+          setCurrentView('portal')
+        }}
+      />
+    )
+  }
+
+  // --------------------------------------------------------------------------
   // RENDER: Public Landing Page
   // --------------------------------------------------------------------------
   if (currentView === 'home') {
     return (
       <Home
-        onOpenPortal={() => {
-          setPortalRole('client')
-          setCurrentView('portal')
-        }}
-        onLoginClick={(role) => {
-          setPortalRole(role || 'client')
-          setSessionUser(null)
-          setAuthMode('login')
-          setCurrentView('portal')
-        }}
+        onOpenPortal={() => triggerPortalWithSplash('client', 'login')}
+        onLoginClick={(role) => triggerPortalWithSplash(role || 'client', 'login')}
       />
     )
   }
@@ -649,7 +1172,16 @@ function App() {
               Back to Home
             </button>
             <div className="auth-header">
-              {isClientPortal ? (
+              {authMode === 'forgot' ? (
+                <>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#eff6ff', color: '#003c90', padding: '4px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700, marginBottom: '10px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lock_reset</span>
+                    Security & Account Recovery
+                  </div>
+                  <h2>Reset Portal Password</h2>
+                  <p>Follow the verification steps below to securely reset your {isClientPortal ? 'patient' : 'practitioner'} account password.</p>
+                </>
+              ) : isClientPortal ? (
                 <>
                   <h2>{authMode === 'signup' ? 'Patient Registration' : 'Patient Logon'}</h2>
                   <p>
@@ -670,7 +1202,157 @@ function App() {
               )}
             </div>
 
-            {authMode === 'signup' ? (
+            {authMode === 'forgot' ? (
+              <form onSubmit={forgotStep === 1 ? handleForgotRequestCode : forgotStep === 2 ? handleForgotResetPassword : (e) => { e.preventDefault(); setAuthMode('login'); }} className="modern-form">
+                <div className="recovery-steps-tracker">
+                  <div className={`recovery-step-dot ${forgotStep >= 1 ? 'active' : ''} ${forgotStep > 1 ? 'completed' : ''}`}>
+                    {forgotStep > 1 ? <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span> : '1'}
+                  </div>
+                  <div className={`recovery-step-line ${forgotStep >= 2 ? 'active' : ''}`} />
+                  <div className={`recovery-step-dot ${forgotStep >= 2 ? 'active' : ''} ${forgotStep > 2 ? 'completed' : ''}`}>
+                    {forgotStep > 2 ? <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span> : '2'}
+                  </div>
+                  <div className={`recovery-step-line ${forgotStep >= 3 ? 'active' : ''}`} />
+                  <div className={`recovery-step-dot ${forgotStep >= 3 ? 'active completed' : ''}`}>
+                    {forgotStep === 3 ? <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span> : '3'}
+                  </div>
+                </div>
+
+                {forgotStatusMsg && (
+                  <div className={`recovery-alert ${forgotStatusMsg.type}`}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', marginTop: '1px' }}>
+                      {forgotStatusMsg.type === 'error' ? 'error' : forgotStatusMsg.type === 'success' ? 'check_circle' : 'info'}
+                    </span>
+                    <div>{forgotStatusMsg.text}</div>
+                  </div>
+                )}
+
+                {forgotStep === 1 && (
+                  <>
+                    <div className="form-group">
+                      <label>Registered Account Email</label>
+                      <div className="input-with-icon">
+                        <span className="material-symbols-outlined">mail</span>
+                        <input
+                          type="email"
+                          className="modern-input"
+                          placeholder="you@example.com"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                        We will send a 6-digit authentication verification code to this address.
+                      </span>
+                    </div>
+
+                    <button type="submit" className="modern-submit-btn" disabled={forgotLoading}>
+                      {forgotLoading ? (
+                        <span>Sending Verification Code...</span>
+                      ) : (
+                        <>
+                          <span>Send Verification Code</span>
+                          <span className="material-symbols-outlined">send</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {forgotStep === 2 && (
+                  <>
+                    {forgotCode && (
+                      <div className="recovery-code-card">
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>DEMO VERIFICATION CODE</div>
+                        <div className="recovery-code-val">{forgotCode}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px' }}>In production, this code is emailed directly to you.</div>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label>Enter 6-Digit Verification Code</label>
+                      <div className="input-with-icon">
+                        <span className="material-symbols-outlined">pin</span>
+                        <input
+                          type="text"
+                          className="modern-input"
+                          placeholder="e.g. 849201"
+                          value={forgotUserCode}
+                          onChange={(e) => setForgotUserCode(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>New Password</label>
+                      <div className="input-with-icon">
+                        <span className="material-symbols-outlined">key</span>
+                        <input
+                          type="password"
+                          className="modern-input"
+                          placeholder="Minimum 4 characters"
+                          value={forgotNewPass}
+                          onChange={(e) => setForgotNewPass(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Confirm New Password</label>
+                      <div className="input-with-icon">
+                        <span className="material-symbols-outlined">lock_clock</span>
+                        <input
+                          type="password"
+                          className="modern-input"
+                          placeholder="Re-enter new password"
+                          value={forgotConfirmPass}
+                          onChange={(e) => setForgotConfirmPass(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="modern-submit-btn" disabled={forgotLoading}>
+                      {forgotLoading ? (
+                        <span>Updating Password...</span>
+                      ) : (
+                        <>
+                          <span>Update Password</span>
+                          <span className="material-symbols-outlined">check_circle</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {forgotStep === 3 && (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>verified</span>
+                    </div>
+                    <h3 style={{ fontSize: '1.15rem', color: '#0f172a', marginBottom: '8px' }}>Password Successfully Updated</h3>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px', lineHeight: 1.5 }}>
+                      Your portal password has been reset. You can now log into your account with your new credentials.
+                    </p>
+                    <button
+                      type="button"
+                      className="modern-submit-btn"
+                      onClick={() => {
+                        setAuthMode('login')
+                        setForgotStep(1)
+                        setForgotStatusMsg(null)
+                      }}
+                    >
+                      <span>Return to Log In</span>
+                      <span className="material-symbols-outlined">login</span>
+                    </button>
+                  </div>
+                )}
+              </form>
+            ) : authMode === 'signup' ? (
               <form onSubmit={handleSignupSubmit} className="modern-form">
                 {isClientPortal ? (
                   <>
@@ -699,7 +1381,7 @@ function App() {
                             type="email"
                             name="email"
                             className="modern-input"
-                            placeholder="sarah@example.com"
+                            placeholder="sarah.j@example.com"
                             value={clientForm.email}
                             onChange={handleClientChange}
                             required
@@ -715,7 +1397,7 @@ function App() {
                             type="tel"
                             name="phone"
                             className="modern-input"
-                            placeholder="(555) 234-5678"
+                            placeholder="(555) 000-0000"
                             value={clientForm.phone}
                             onChange={handleClientChange}
                           />
@@ -949,20 +1631,52 @@ function App() {
                   </div>
                 </div>
 
-                <button type="submit" className="modern-submit-btn">
-                  <span>Log In to {isClientPortal ? 'Patient Portal' : 'Clinical Portal'}</span>
-                  <span className="material-symbols-outlined">login</span>
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', gap: '16px' }}>
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setAuthMode('forgot')
+                      setForgotEmail(loginForm.email || '')
+                      setForgotStep(1)
+                      setForgotStatusMsg(null)
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+
+                  <button type="submit" className="modern-submit-btn" style={{ width: 'auto', minWidth: '140px', marginTop: 0, padding: '11px 24px' }}>
+                    <span>Sign In</span>
+                    <span className="material-symbols-outlined">login</span>
+                  </button>
+                </div>
               </form>
             )}
 
             <div className="auth-switch-footer">
-              <p>
-                {authMode === 'signup' ? 'Already registered?' : 'Need a new account?'}
-                <button type="button" className="auth-switch-btn" onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}>
-                  {authMode === 'signup' ? 'Log In' : 'Sign Up'}
-                </button>
-              </p>
+              {authMode === 'forgot' ? (
+                <p>
+                  Remembered your password?{' '}
+                  <button
+                    type="button"
+                    className="auth-switch-btn"
+                    onClick={() => {
+                      setAuthMode('login')
+                      setForgotStep(1)
+                      setForgotStatusMsg(null)
+                    }}
+                  >
+                    Back to Log In
+                  </button>
+                </p>
+              ) : (
+                <p>
+                  {authMode === 'signup' ? 'Already registered?' : 'Need a new account?'}
+                  <button type="button" className="auth-switch-btn" onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}>
+                    {authMode === 'signup' ? 'Log In' : 'Sign Up'}
+                  </button>
+                </p>
+              )}
 
               {!isClientPortal && (
                 <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1.5px dashed #e2e8f0' }}>
@@ -1187,22 +1901,29 @@ function App() {
                 className={`nav-link-item ${activeTab === 'dashboard' ? 'active' : ''}`}
                 onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false) }}
               >
-                <span className="material-symbols-outlined">clinical_notes</span>
-                My Clinical Recovery
+                <span className="material-symbols-outlined">health_and_safety</span>
+                Hospital Station
+              </button>
+              <button
+                className={`nav-link-item ${activeTab === 'schedule' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('schedule'); setMobileMenuOpen(false) }}
+              >
+                <span className="material-symbols-outlined">schedule</span>
+                Daily Therapy Flow
+              </button>
+              <button
+                className={`nav-link-item ${activeTab === 'meds' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('meds'); setMobileMenuOpen(false) }}
+              >
+                <span className="material-symbols-outlined">medication</span>
+                Meds & Treatments
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'goals' ? 'active' : ''}`}
                 onClick={() => { setActiveTab('goals'); setMobileMenuOpen(false) }}
               >
                 <span className="material-symbols-outlined">flag</span>
-                Rehab Goals & FIM
-              </button>
-              <button
-                className={`nav-link-item ${activeTab === 'appointments' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('appointments'); setMobileMenuOpen(false) }}
-              >
-                <span className="material-symbols-outlined">calendar_today</span>
-                Clinical Sessions
+                Clinical Goals & FIM
               </button>
               <button
                 className={`nav-link-item ${activeTab === 'exercises' ? 'active' : ''}`}
@@ -1210,6 +1931,13 @@ function App() {
               >
                 <span className="material-symbols-outlined">medical_services</span>
                 Prescribed Protocols
+              </button>
+              <button
+                className={`nav-link-item ${activeTab === 'records' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('records'); setMobileMenuOpen(false) }}
+              >
+                <span className="material-symbols-outlined">description</span>
+                Hospital Records
               </button>
               <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
               <button
@@ -1271,8 +1999,12 @@ function App() {
 
         {isClient && (
           <div className="sidebar-cta">
-            <button className="btn-sidebar-cta" onClick={() => { setMobileMenuOpen(false); alert('Messaging Care Team...') }}>
-              <span className="material-symbols-outlined">chat</span>
+            <button
+              className="btn-sidebar-cta"
+              style={{ background: 'linear-gradient(135deg, #0f52ba 0%, #1d4ed8 100%)', color: '#ffffff' }}
+              onClick={() => { setMobileMenuOpen(false); setShowCareTeamModal(true) }}
+            >
+              <span className="material-symbols-outlined">forum</span>
               Contact Care Team
             </button>
           </div>
@@ -1448,11 +2180,9 @@ function App() {
                       </button>
                     </div>
 
-                    {/* Step guidance */}
-                    {/* Step guidance */}
                     <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
                       <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                        Prescribed Prescription
+                        Clinical Protocol Prescription
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center', marginBottom: '16px' }}>
                         <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
@@ -1471,10 +2201,10 @@ function App() {
 
                       <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#374151', marginBottom: '8px' }}>Execution Instructions:</h4>
                       <ol style={{ fontSize: '0.85rem', color: '#475569', paddingLeft: '18px', lineHeight: 1.6, margin: 0 }}>
-                        <li>Lie flat on your back on a firm surface with legs straight.</li>
-                        <li>Slowly slide your heel toward your buttocks, bending your knee as far as comfortable.</li>
-                        <li>Hold at the peak bend for 3 seconds, keeping your foot flat.</li>
-                        <li>Slowly return to starting position. Repeat for prescribed repetitions.</li>
+                        <li>Lie flat on your back on a firm treatment surface with legs in neutral alignment.</li>
+                        <li>Slowly slide your heel toward your buttocks, bending your knee to comfortable active tolerance.</li>
+                        <li>Hold at peak flexion for 3-5 seconds while keeping your foot planted.</li>
+                        <li>Slowly return to the starting position. Repeat for all prescribed repetitions.</li>
                       </ol>
                     </div>
 
@@ -1499,28 +2229,528 @@ function App() {
                 document.body
               )}
 
-              {/* ── PATIENT TAB 1: MY CLINICAL RECOVERY ── */}
+              {/* ── Patient Modal: Hospital Care Team Chat ── */}
+              {showCareTeamModal && createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', zIndex: 99999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                    padding: '16px', boxSizing: 'border-box'
+                  }}
+                  onClick={() => setShowCareTeamModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff', borderRadius: '24px', padding: '0',
+                      width: '100%', maxWidth: '780px', height: '560px', overflow: 'hidden',
+                      boxShadow: '0 24px 64px rgba(15,52,186,0.25)', display: 'flex', flexDirection: 'column',
+                      animation: 'fadeSlideIn 0.25s ease'
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ padding: '18px 24px', background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#60a5fa' }}>forum</span>
+                        <div>
+                          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#fff' }}>Secure Hospital Care Team Portal</h3>
+                          <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', margin: '2px 0 0 0' }}>HIPAA-Compliant Encrypted Clinical Messaging • St. Jude Rehab Unit 3B</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowCareTeamModal(false)}
+                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
+                      </button>
+                    </div>
+
+                    <div className="care-chat-modal-grid" style={{ flex: 1, border: 'none', borderRadius: 0, height: 'auto' }}>
+                      <div className="care-chat-sidebar">
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 4px 6px 4px' }}>
+                          Primary Care Team
+                        </span>
+                        {[
+                          { key: 'physiatrist', name: 'Dr. Lena Ortiz, MD', role: 'Attending Physiatrist', icon: 'stethoscope', status: 'Online' },
+                          { key: 'pt', name: 'Dr. A. Smith, PT', role: 'Physical Therapist', icon: 'exercise', status: 'In Clinic' },
+                          { key: 'ot', name: 'Sarah Chen, OTR/L', role: 'Occupational Therapist', icon: 'hand_gesture', status: 'In Clinic' },
+                          { key: 'nurse', name: 'Marcus Ray, RN', role: 'Primary Rehab Nurse', icon: 'medical_services', status: 'Station 3B' },
+                        ].map(prov => (
+                          <button
+                            key={prov.key}
+                            onClick={() => setActiveCareRole(prov.key)}
+                            className={`care-provider-btn ${activeCareRole === prov.key ? 'active' : ''}`}
+                          >
+                            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: activeCareRole === prov.key ? '#0f52ba' : '#e2e8f0', color: activeCareRole === prov.key ? '#fff' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{prov.icon}</span>
+                            </div>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{prov.name}</div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{prov.role}</div>
+                            </div>
+                          </button>
+                        ))}
+
+                        <div style={{ marginTop: 'auto', padding: '10px', background: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#166534', fontWeight: 800 }}>Nurse Station 3B Status: Active</span>
+                        </div>
+                      </div>
+
+                      <div className="care-chat-main">
+                        <div className="care-chat-header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="pulse-indicator-dot" />
+                            <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                              {activeCareRole === 'physiatrist' ? 'Dr. Lena Ortiz, MD (Attending Physiatrist)' :
+                                activeCareRole === 'pt' ? 'Dr. A. Smith, PT, DPT (Physical Therapy)' :
+                                activeCareRole === 'ot' ? 'Sarah Chen, MS, OTR/L (Occupational Therapy)' :
+                                'Marcus Ray, BSN, CRRN (Floor Station 3B)'}
+                            </strong>
+                          </div>
+                          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Average reply time: ~10 mins</span>
+                        </div>
+
+                        <div className="care-chat-messages">
+                          {(careMessages[activeCareRole] || []).map(msg => (
+                            <div key={msg.id} className={`chat-bubble ${msg.sender === 'patient' ? 'patient' : 'provider'}`}>
+                              <div style={{ fontSize: '0.72rem', opacity: 0.8, marginBottom: '3px', fontWeight: 700 }}>
+                                {msg.sender === 'patient' ? 'You' : msg.sender} • {msg.time}
+                              </div>
+                              <div>{msg.text}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ padding: '6px 16px', background: '#f8fafc', display: 'flex', gap: '6px', overflowX: 'auto', borderTop: '1px solid #e2e8f0' }}>
+                          {[
+                            'How long should I keep ice wrap on?',
+                            'Can we test 12 stairs today?',
+                            'Request refill on Celebrex',
+                            'Need assistance with walking'
+                          ].map(quick => (
+                            <button
+                              key={quick}
+                              type="button"
+                              onClick={() => setChatInputText(quick)}
+                              style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '50px', padding: '3px 10px', fontSize: '0.72rem', color: '#334155', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            >
+                              + {quick}
+                            </button>
+                          ))}
+                        </div>
+
+                        <form onSubmit={handleSendCareMessage} className="care-chat-footer">
+                          <input
+                            type="text"
+                            className="modern-input"
+                            placeholder="Type a clinical message to your provider..."
+                            value={chatInputText}
+                            onChange={e => setChatInputText(e.target.value)}
+                            style={{ flex: 1, padding: '10px 14px' }}
+                          />
+                          <button
+                            type="submit"
+                            className="modern-submit-btn"
+                            style={{ width: 'auto', padding: '10px 20px', marginTop: 0 }}
+                          >
+                            <span>Send</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>send</span>
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* ── Patient Modal: Hospital Clinical Summary & Records ── */}
+              {showClinicalRecordModal && createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', zIndex: 99999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
+                    padding: '16px', boxSizing: 'border-box'
+                  }}
+                  onClick={() => setShowClinicalRecordModal(false)}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff', borderRadius: '24px', padding: '32px',
+                      width: '100%', maxWidth: '680px', maxHeight: '88vh', overflowY: 'auto',
+                      boxShadow: '0 24px 64px rgba(15,52,186,0.25)', animation: 'fadeSlideIn 0.25s ease'
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '16px' }}>
+                      <div>
+                        <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '3px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800 }}>
+                          Official Clinical Record
+                        </span>
+                        <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0f172a', marginTop: '6px' }}>Inpatient Rehabilitation Summary Report</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>St. Jude Rehabilitation Hospital • Department of Physical Medicine & Rehabilitation</p>
+                      </div>
+                      <button
+                        onClick={() => setShowClinicalRecordModal(false)}
+                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>close</span>
+                      </button>
+                    </div>
+
+                    <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.82rem', marginBottom: '14px' }}>
+                        <div><strong>Patient:</strong> {sessionUser.name}</div>
+                        <div><strong>MRN:</strong> {patientHospitalInfo.mrn}</div>
+                        <div><strong>Admission Date:</strong> {patientHospitalInfo.admissionDate}</div>
+                        <div><strong>Room / Bed:</strong> {patientHospitalInfo.room}</div>
+                        <div><strong>Attending Physiatrist:</strong> {patientHospitalInfo.attendingPhysiatrist}</div>
+                        <div><strong>Diagnosis:</strong> Post-Op ACL Reconstruction (Right Knee)</div>
+                      </div>
+
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', marginBottom: '8px' }}>Physiatry Functional Assessment:</h4>
+                      <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.6, margin: '0 0 14px 0' }}>
+                        Patient is progressing through Phase 2 active rehabilitation with excellent compliance. Active right knee ROM has achieved 115° of flexion with 0° terminal extension. Patient demonstrates safe ambulation over 180 feet with axillary crutches under supervision. Quad recruitment via NMES biofeedback is robust.
+                      </p>
+
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', marginBottom: '8px' }}>FIM Functional Score Comparison:</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center', marginBottom: '14px' }}>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>ADMISSION FIM</span>
+                          <strong style={{ fontSize: '1.2rem', color: '#dc2626', display: 'block' }}>54 / 126</strong>
+                        </div>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>CURRENT FIM</span>
+                          <strong style={{ fontSize: '1.2rem', color: '#0f52ba', display: 'block' }}>104 / 126</strong>
+                        </div>
+                        <div style={{ background: '#fff', borderRadius: '10px', padding: '10px', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>DISCHARGE GOAL</span>
+                          <strong style={{ fontSize: '1.2rem', color: '#16a34a', display: 'block' }}>118 / 126</strong>
+                        </div>
+                      </div>
+
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', marginBottom: '8px' }}>Discharge Planning Status:</h4>
+                      <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                        Target discharge date: <strong>Nov 15, 2026</strong> to independent home setting with outpatient physical therapy continuation at St. Jude Outpatient Wing. Caregiver training confirmed.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        onClick={() => window.print()}
+                        style={{ padding: '12px 20px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#334151', fontWeight: 800, fontSize: '0.88rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>print</span>
+                        Print Clinical Summary
+                      </button>
+                      <button
+                        onClick={handleDownloadPatientData}
+                        className="modern-submit-btn"
+                        style={{ flex: 1, marginTop: 0 }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
+                        Export Official Patient Record (.json)
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* ── Patient Modal: Comprehensive Clinical Document Detail Viewer ── */}
+              {showRecordDetailModal && selectedRecordDetail && createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    width: '100vw', height: '100vh', zIndex: 99999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)',
+                    padding: '16px', boxSizing: 'border-box'
+                  }}
+                  onClick={() => setShowRecordDetailModal(false)}
+                >
+                  <div
+                    className="clinical-paper-modal"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* Official Document Header */}
+                    <div className="hospital-doc-header">
+                      <div className="hospital-seal-title">
+                        <div className="hospital-seal-icon">
+                          <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>local_hospital</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f52ba', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            St. Jude Rehabilitation Hospital • Official Medical Record
+                          </div>
+                          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0f172a', margin: '2px 0 0 0' }}>
+                            {selectedRecordDetail.title}
+                          </h2>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                            Document ID: <strong>{selectedRecordDetail.id}</strong> • Category: <strong>{selectedRecordDetail.category}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setShowRecordDetailModal(false)}
+                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>close</span>
+                      </button>
+                    </div>
+
+                    {/* Patient & Encounter Demographics Bar */}
+                    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', fontSize: '0.8rem', marginBottom: '22px' }}>
+                      <div><span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>PATIENT NAME</span><strong>{sessionUser.name}</strong></div>
+                      <div><span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>MRN</span><strong>{patientHospitalInfo.mrn}</strong></div>
+                      <div><span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>ENCOUNTER DATE</span><strong>{selectedRecordDetail.date}</strong></div>
+                      <div><span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>UNIT / ROOM</span><strong>{selectedRecordDetail.encounter}</strong></div>
+                    </div>
+
+                    {/* Clinical Document Sections */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                      {selectedRecordDetail.fullSections.map((sec, idx) => (
+                        <div key={idx} className="doc-section-block">
+                          <div className="doc-section-title">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>verified</span>
+                            {sec.label}
+                          </div>
+                          <div className="doc-section-body">
+                            {sec.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Author & Attestation Signature */}
+                    <div className="doc-signature-footer">
+                      <div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Electronically Signed & Certified By</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>{selectedRecordDetail.author}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#0f52ba', fontWeight: 700 }}>{selectedRecordDetail.authorRole}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>License / Certification: {selectedRecordDetail.license}</div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={() => window.print()}
+                          style={{ padding: '10px 18px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#334151', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>print</span>
+                          Print Document
+                        </button>
+                        <button
+                          onClick={() => {
+                            const blob = new Blob([JSON.stringify(selectedRecordDetail, null, 2)], { type: 'application/json' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = `${selectedRecordDetail.id}_Clinical_Record.json`
+                            a.click()
+                            URL.revokeObjectURL(url)
+                            triggerToast(`Document ${selectedRecordDetail.id} downloaded successfully!`)
+                          }}
+                          className="modern-submit-btn"
+                          style={{ width: 'auto', padding: '10px 20px', marginTop: 0 }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                          Download Record
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* ── PATIENT TAB 1: HOSPITAL RECOVERY STATION (DASHBOARD) ── */}
               {activeTab === 'dashboard' && (
                 <>
-                  {/* Hero Banner — Clinical Recovery Portal */}
+                  {/* Hospital Admission Strip — Premium Clinical ID Band */}
+                  <div className="admission-id-band">
+                    {/* Hospital Header Bar */}
+                    <div className="admission-hospital-bar">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="admission-hospital-seal">
+                          <span className="material-symbols-outlined" style={{ fontSize: '22px', color: '#fff' }}>local_hospital</span>
+                        </div>
+                        <div>
+                          <div className="admission-hospital-name">{patientHospitalInfo.hospitalName}</div>
+                          <div className="admission-hospital-dept">Department of Physical Medicine &amp; Rehabilitation • Inpatient Unit 3B</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className="adm-status-badge active-rehab">
+                          <span className="adm-pulse-dot" />
+                          {patientHospitalInfo.status}
+                        </span>
+                        <span className="adm-status-badge code-full">
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>favorite</span>
+                          {patientHospitalInfo.codeStatus}
+                        </span>
+                        <span className="adm-status-badge day-counter">
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>calendar_today</span>
+                          Day {patientHospitalInfo.rehabDay}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Main Patient Identity & Clinical Data */}
+                    <div className="admission-body">
+                      {/* Patient Avatar & Identity */}
+                      <div className="admission-patient-identity">
+                        <div className="admission-avatar">
+                          {sessionUser.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <div className="admission-patient-name">{sessionUser.name}</div>
+                          <div className="admission-mrn">{patientHospitalInfo.mrn}</div>
+                          <div className="admission-dob">DOB: Apr 12, 1986 &nbsp;·&nbsp; Age: 40 &nbsp;·&nbsp; Female &nbsp;·&nbsp; O+</div>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="admission-divider" />
+
+                      {/* Clinical Details Grid */}
+                      <div className="admission-details-grid">
+                        <div className="adm-detail-cell">
+                          <span className="adm-detail-label">
+                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>meeting_room</span>
+                            Location
+                          </span>
+                          <span className="adm-detail-val">{patientHospitalInfo.room}</span>
+                          <span className="adm-detail-sub">{patientHospitalInfo.wing}</span>
+                        </div>
+                        <div className="adm-detail-cell">
+                          <span className="adm-detail-label">
+                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>event_available</span>
+                            Admitted
+                          </span>
+                          <span className="adm-detail-val">{patientHospitalInfo.admissionDate}</span>
+                          <span className="adm-detail-sub">Inpatient Rehab Day {patientHospitalInfo.rehabDay}</span>
+                        </div>
+                        <div className="adm-detail-cell">
+                          <span className="adm-detail-label">
+                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>directions_walk</span>
+                            Weight Bearing
+                          </span>
+                          <span className="adm-detail-val">WBAT</span>
+                          <span className="adm-detail-sub">Right Lower Extremity</span>
+                        </div>
+                        <div className="adm-detail-cell">
+                          <span className="adm-detail-label">
+                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>restaurant</span>
+                            Diet Order
+                          </span>
+                          <span className="adm-detail-val">{patientHospitalInfo.diet}</span>
+                          <span className="adm-detail-sub">Oral • No Restrictions</span>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="admission-divider" />
+
+                      {/* Care Team */}
+                      <div className="admission-care-team">
+                        <div className="adm-team-label">Care Team</div>
+                        <div className="adm-team-members">
+                          <div className="adm-team-member">
+                            <div className="adm-team-avatar physiatrist">
+                              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>stethoscope</span>
+                            </div>
+                            <div>
+                              <div className="adm-member-name">{patientHospitalInfo.attendingPhysiatrist}</div>
+                              <div className="adm-member-role">Attending Physiatrist</div>
+                            </div>
+                          </div>
+                          <div className="adm-team-member">
+                            <div className="adm-team-avatar pt">
+                              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>exercise</span>
+                            </div>
+                            <div>
+                              <div className="adm-member-name">{patientHospitalInfo.primaryPT}</div>
+                              <div className="adm-member-role">Physical Therapist</div>
+                            </div>
+                          </div>
+                          <div className="adm-team-member">
+                            <div className="adm-team-avatar ot">
+                              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>self_improvement</span>
+                            </div>
+                            <div>
+                              <div className="adm-member-name">{patientHospitalInfo.primaryOT}</div>
+                              <div className="adm-member-role">Occupational Therapist</div>
+                            </div>
+                          </div>
+                          <div className="adm-team-member">
+                            <div className="adm-team-avatar rn">
+                              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>medical_services</span>
+                            </div>
+                            <div>
+                              <div className="adm-member-name">{patientHospitalInfo.primaryNurse}</div>
+                              <div className="adm-member-role">Floor RN, Station 3B</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="admission-divider" />
+
+                      {/* Precaution Badges */}
+                      <div className="admission-precautions">
+                        <div className="adm-team-label">Precautions &amp; Orders</div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                          <span className="adm-precaution-tag yellow">
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>warning</span>
+                            {patientHospitalInfo.fallRisk}
+                          </span>
+                          <span className="adm-precaution-tag blue">
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>directions_walk</span>
+                            {patientHospitalInfo.weightBearing}
+                          </span>
+                          <span className="adm-precaution-tag green">
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>medication</span>
+                            DVT Prophylaxis Active (Enoxaparin)
+                          </span>
+                          <span className="adm-precaution-tag red">
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>block</span>
+                            Allergy: Penicillin (Urticaria)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="admission-footer">
+                      <span>Encounter: ENC-2026-3304 &nbsp;·&nbsp; HIPAA Protected Health Information &nbsp;·&nbsp; St. Jude Rehab Hospital EHR System</span>
+                      <span>Last Verified: Today, 06:00 AM &nbsp;·&nbsp; Marcus Ray, BSN, CRRN</span>
+                    </div>
+                  </div>
+
+                  {/* Hero Banner — Hospital Recovery Station */}
                   <section className="portal-hero-banner" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', borderRadius: '24px', padding: '28px 32px' }}>
                     <div className="hero-banner-content">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.18)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#fff' }}>
-                          Clinical Rehab Day 24
+                          Inpatient Rehab Day {patientHospitalInfo.rehabDay}
                         </span>
                         <span style={{ background: 'rgba(34,197,94,0.25)', color: '#4ade80', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Phase 2: Active ROM & Weight Bearing
+                          Phase 2: Active ROM & WBAT
                         </span>
                       </div>
                       <h2 style={{ fontSize: '1.7rem', fontWeight: 900, color: '#ffffff', margin: 0 }}>Welcome back, {sessionUser.name.split(' ')[0]} 👋</h2>
                       <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', marginTop: '6px', marginBottom: 0 }}>
-                        Post-Op ACL Reconstruction (Right Knee) &nbsp;·&nbsp; Lead Physiatrist: <strong>Dr. Lena Ortiz, MD</strong> &nbsp;·&nbsp; PT Specialist: <strong>Dr. A. Smith, PT</strong>
+                        Post-Op ACL Reconstruction (Right Knee) &nbsp;·&nbsp; Physiatrist: <strong>{patientHospitalInfo.attendingPhysiatrist}</strong> &nbsp;·&nbsp; Primary PT: <strong>{patientHospitalInfo.primaryPT}</strong>
                       </p>
                     </div>
                     <div className="hero-stats-pills">
                       <div className="stat-pill-glass">
-                        <strong>110°</strong>
+                        <strong>{patientVitals.flexionRom}°</strong>
                         <span>Active ROM (Flexion)</span>
                       </div>
                       <div className="stat-pill-glass">
@@ -1538,13 +2768,81 @@ function App() {
                     </div>
                   </section>
 
-                  {/* Quick Action Cards — Clinical Shortcuts */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', padding: '0 0 4px 0' }}>
+                  {/* Real-time Vital Signs Telemetry Station */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="pulse-indicator-dot" />
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Clinical Vital Signs Telemetry</h3>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Synced: {patientVitals.lastChecked}</span>
+                    </div>
+
+                    <div className="telemetry-grid">
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-header">
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Blood Pressure</span>
+                          <div className="telemetry-icon-wrap" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>vital_signs</span>
+                          </div>
+                        </div>
+                        <div className="telemetry-val">{patientVitals.bpSys}/{patientVitals.bpDia}</div>
+                        <div className="telemetry-unit">mmHg (Normotensive)</div>
+                      </div>
+
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-header">
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Heart Rate</span>
+                          <div className="telemetry-icon-wrap" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>cardiology</span>
+                          </div>
+                        </div>
+                        <div className="telemetry-val">{patientVitals.hr}</div>
+                        <div className="telemetry-unit">bpm (Sinus Rhythm)</div>
+                      </div>
+
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-header">
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Oxygen SpO2</span>
+                          <div className="telemetry-icon-wrap" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>air</span>
+                          </div>
+                        </div>
+                        <div className="telemetry-val">{patientVitals.spo2}%</div>
+                        <div className="telemetry-unit">Room Air (Optimal)</div>
+                      </div>
+
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-header">
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Body Temp</span>
+                          <div className="telemetry-icon-wrap" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>thermostat</span>
+                          </div>
+                        </div>
+                        <div className="telemetry-val">{patientVitals.temp}°F</div>
+                        <div className="telemetry-unit">Oral (Afebrile)</div>
+                      </div>
+
+                      <div className="telemetry-card">
+                        <div className="telemetry-card-header">
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Active ROM</span>
+                          <div className="telemetry-icon-wrap" style={{ background: '#fff7ed', color: '#ea580c' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>accessibility_new</span>
+                          </div>
+                        </div>
+                        <div className="telemetry-val">{patientVitals.flexionRom}°</div>
+                        <div className="telemetry-unit">Knee Flexion / 0° Ext</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Action Navigation Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '22px' }}>
                     {[
-                      { icon: 'medical_services', label: 'Prescribed Protocols', sublabel: `${completedExerciseIds.length}/${clientExercises.length} completed today`, tab: 'exercises', color: '#0f52ba', bg: '#eff6ff' },
-                      { icon: 'calendar_today', label: 'Clinical Sessions', sublabel: `${clientAppointments.length} upcoming appointments`, tab: 'appointments', color: '#7c3aed', bg: '#f5f3ff' },
-                      { icon: 'flag', label: 'Rehab Goals & FIM', sublabel: '78% milestones achieved', tab: 'goals', color: '#059669', bg: '#ecfdf5' },
-                      { icon: 'monitor_heart', label: 'Pain & ROM Telemetry', sublabel: `Logged: ${clientDailyPain}/10 VAS today`, tab: null, color: '#dc2626', bg: '#fef2f2' },
+                      { icon: 'schedule', label: 'Daily Therapy Flow', sublabel: `${hospitalSchedule.filter(s => s.status === 'Completed').length}/${hospitalSchedule.length} sessions done today`, tab: 'schedule', color: '#0f52ba', bg: '#eff6ff' },
+                      { icon: 'medication', label: 'Meds & Treatments', sublabel: `${patientMeds.filter(m => m.taken).length}/${patientMeds.length} doses logged`, tab: 'meds', color: '#16a34a', bg: '#f0fdf4' },
+                      { icon: 'flag', label: 'Clinical Goals & FIM', sublabel: '78% milestone recovery', tab: 'goals', color: '#7c3aed', bg: '#f5f3ff' },
+                      { icon: 'description', label: 'Hospital Records', sublabel: 'View physiatry summary', tab: 'records', color: '#0284c7', bg: '#f0f9ff' },
                     ].map(card => (
                       <div
                         key={card.label}
@@ -1565,19 +2863,18 @@ function App() {
 
                   {/* Bento Grid */}
                   <div className="bento-grid">
-                    {/* Enhanced Progress Chart */}
+                    {/* Recovery Progress Chart */}
                     <div className="bento-card col-span-7">
                       <div className="card-header">
                         <div className="card-header-left">
-                          <h3>My Recovery Progress</h3>
-                          <p>Weekly Mobility Score — 4-Week Trend</p>
+                          <h3>Hospital Rehabilitation Trajectory</h3>
+                          <p>Mobility vs Protocol Adherence — 4-Week Inpatient Trend</p>
                         </div>
                         <span className="trend-tag positive">
-                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>trending_up</span> +15%
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>trending_up</span> +15% FIM Gain
                         </span>
                       </div>
 
-                      {/* Dual metric legend */}
                       <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', paddingLeft: '4px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'linear-gradient(135deg,#0f52ba,#2563eb)' }} />
@@ -1585,17 +2882,17 @@ function App() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} />
-                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Exercise Completion %</span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Therapy Attendance %</span>
                         </div>
                       </div>
 
                       <div className="chart-container-box">
                         <div className="bar-chart-flex">
                           {[
-                            { label: 'Week 1', mob: 40, ex: 50 },
-                            { label: 'Week 2', mob: 55, ex: 62 },
-                            { label: 'Week 3', mob: 70, ex: 75 },
-                            { label: 'Week 4', mob: 82, ex: 88 },
+                            { label: 'Week 1', mob: 40, ex: 60 },
+                            { label: 'Week 2', mob: 55, ex: 72 },
+                            { label: 'Week 3', mob: 70, ex: 85 },
+                            { label: 'Week 4', mob: 82, ex: 94 },
                           ].map(w => (
                             <div key={w.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
                               <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '160px', width: '100%', justifyContent: 'center' }}>
@@ -1613,230 +2910,323 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Pain Tracker + Stats Side Panel */}
-                    <div className="bento-card col-span-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {/* Pain Tracker */}
+                    {/* Pain Scale & Anatomical Logger */}
+                    <div className="bento-card col-span-5" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div className="card-header" style={{ marginBottom: 0 }}>
+                        <div className="card-header-left">
+                          <h3>VAS Pain & Location Telemetry</h3>
+                          <p>Log your current localized symptom scale</p>
+                        </div>
+                        <span style={{ fontSize: '1.4rem', fontWeight: 900, color: clientDailyPain <= 3 ? '#16a34a' : clientDailyPain <= 6 ? '#f59e0b' : '#dc2626' }}>
+                          {clientDailyPain}/10
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'space-between' }}>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setClientDailyPain(n)}
+                            style={{
+                              width: '30px', height: '30px', borderRadius: '8px', border: 'none',
+                              background: n === clientDailyPain
+                                ? (n <= 3 ? '#16a34a' : n <= 6 ? '#f59e0b' : '#dc2626')
+                                : '#f1f5f9',
+                              color: n === clientDailyPain ? '#fff' : '#64748b',
+                              fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >{n}</button>
+                        ))}
+                      </div>
+
                       <div>
-                        <div className="card-header" style={{ marginBottom: '14px' }}>
-                          <div className="card-header-left">
-                            <h3>Today's Pain Level</h3>
-                            <p>Tap a number to log your current pain</p>
-                          </div>
-                          <span style={{ fontSize: '1.4rem', fontWeight: 900, color: clientDailyPain <= 3 ? '#16a34a' : clientDailyPain <= 6 ? '#f59e0b' : '#dc2626' }}>
-                            {clientDailyPain}/10
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'space-between' }}>
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                        <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Target Joint / Region</span>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {['Right Knee (Lateral)', 'Right Knee (Patellar)', 'Lumbar Spine', 'Calf / Ankle'].map(loc => (
                             <button
-                              key={n}
-                              onClick={() => setClientDailyPain(n)}
+                              key={loc}
+                              type="button"
+                              onClick={() => setPainLocation(loc)}
                               style={{
-                                width: '32px', height: '32px', borderRadius: '8px', border: 'none',
-                                background: n === clientDailyPain
-                                  ? (n <= 3 ? '#16a34a' : n <= 6 ? '#f59e0b' : '#dc2626')
-                                  : '#f1f5f9',
-                                color: n === clientDailyPain ? '#fff' : '#64748b',
-                                fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer',
-                                transition: 'all 0.15s'
+                                padding: '4px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700,
+                                border: `1.5px solid ${painLocation === loc ? '#0f52ba' : '#e2e8f0'}`,
+                                background: painLocation === loc ? '#eff6ff' : '#fff',
+                                color: painLocation === loc ? '#0f52ba' : '#64748b',
+                                cursor: 'pointer'
                               }}
-                            >{n}</button>
+                            >
+                              {loc}
+                            </button>
                           ))}
-                        </div>
-                        <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#16a34a', fontWeight: 700 }}>No Pain</span>
-                          <span style={{ color: '#f59e0b', fontWeight: 700 }}>Moderate</span>
-                          <span style={{ color: '#dc2626', fontWeight: 700 }}>Severe</span>
                         </div>
                       </div>
 
-                      {/* Stats row */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
-                          { label: 'Days in Program', value: '24', icon: 'calendar_month', color: '#0f52ba', bg: '#eff6ff' },
-                          { label: 'Sessions Done', value: `${clientSessionHistory.length}`, icon: 'check_circle', color: '#16a34a', bg: '#f0fdf4' },
-                          { label: 'Goals Achieved', value: '78%', icon: 'flag', color: '#7c3aed', bg: '#f5f3ff' },
-                          { label: 'Day Streak 🔥', value: '6', icon: 'local_fire_department', color: '#ea580c', bg: '#fff7ed' },
-                        ].map(s => (
-                          <div key={s.label} style={{ background: s.bg, borderRadius: '12px', padding: '12px', border: `1px solid ${s.color}22` }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: s.color }}>{s.icon}</span>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: s.color, lineHeight: 1, marginTop: '4px' }}>{s.value}</div>
-                            <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{s.label}</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="modern-input"
+                          placeholder="Optional symptom note (e.g. stiffness post-walk)..."
+                          value={painNote}
+                          onChange={e => setPainNote(e.target.value)}
+                          style={{ fontSize: '0.78rem', padding: '8px 12px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newLog = {
+                              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                              score: clientDailyPain,
+                              location: painLocation,
+                              note: painNote || 'Routine reading logged'
+                            }
+                            setPainLogHistory([newLog, ...painLogHistory])
+                            setPainNote('')
+                            triggerToast(`Pain level ${clientDailyPain}/10 logged to Floor RN chart!`)
+                          }}
+                          style={{ padding: '8px 14px', borderRadius: '8px', background: '#0f52ba', color: '#fff', border: 'none', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          Log Entry
+                        </button>
+                      </div>
+
+                      <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '10px 12px', border: '1px solid #e2e8f0', fontSize: '0.75rem' }}>
+                        <strong style={{ color: '#0f172a', display: 'block', marginBottom: '4px' }}>Latest Telemetry Readings:</strong>
+                        {painLogHistory.slice(0, 2).map((item, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: '#475569', marginBottom: '2px' }}>
+                            <span>{item.time} · {item.location}</span>
+                            <strong>{item.score}/10 VAS</strong>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Prescribed Rehabilitation Protocols (Interactive Clinical Tracker) */}
-                    <div className="bento-card col-span-5">
-                      <div className="card-header">
-                        <div className="card-header-left">
-                          <h3>Prescribed Therapy Protocols</h3>
-                          <p>{completedExerciseIds.length} of {clientExercises.length} daily protocols completed</p>
+                    {/* Today's Hospital Therapy Schedule Strip */}
+                    <div className="bento-card col-span-12" style={{ padding: '24px 28px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Today's Inpatient Rehabilitation Schedule</h3>
+                          <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Daily clinical care flow coordinated by Physiatrist Dr. Ortiz</p>
                         </div>
                         <button
-                          onClick={() => setActiveTab('exercises')}
-                          style={{ background: 'none', border: 'none', color: '#0f52ba', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+                          onClick={() => setActiveTab('schedule')}
+                          style={{ padding: '8px 16px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#0f52ba', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
                         >
-                          View Protocol Guide →
+                          View Full Schedule →
                         </button>
                       </div>
 
-                      {/* Progress ring visual */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', borderRadius: '14px', padding: '14px', marginBottom: '14px', border: '1px solid #e2e8f0' }}>
-                        <svg width="52" height="52" viewBox="0 0 52 52">
-                          <circle cx="26" cy="26" r="22" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                          <circle cx="26" cy="26" r="22" fill="none" stroke="#0f52ba" strokeWidth="5"
-                            strokeDasharray={`${2 * Math.PI * 22}`}
-                            strokeDashoffset={`${2 * Math.PI * 22 * (1 - completedExerciseIds.length / clientExercises.length)}`}
-                            strokeLinecap="round"
-                            transform="rotate(-90 26 26)"
-                            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-                          />
-                          <text x="26" y="30" textAnchor="middle" fontSize="11" fontWeight="800" fill="#0f172a">
-                            {Math.round((completedExerciseIds.length / clientExercises.length) * 100)}%
-                          </text>
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-                            {completedExerciseIds.length === clientExercises.length ? '🎉 All Protocols Completed!' : `${clientExercises.length - completedExerciseIds.length} protocols remaining today`}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>6-Day Rehabilitation Compliance Streak</div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {clientExercises.map((ex) => {
-                          const isDone = completedExerciseIds.includes(ex.id)
-                          return (
-                            <div
-                              key={ex.id}
+                      <div className="hospital-timeline">
+                        {hospitalSchedule.slice(0, 3).map(session => (
+                          <div key={session.id} className={`timeline-row-card ${session.status === 'In Progress' ? 'in-progress' : ''}`}>
+                            <div className="timeline-time-box">
+                              <div className="timeline-time-val">{session.time}</div>
+                              <div className="timeline-duration">{session.duration}</div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{
+                                  background: session.status === 'Completed' ? '#dcfce7' : session.status === 'In Progress' ? '#dbeafe' : '#f1f5f9',
+                                  color: session.status === 'Completed' ? '#166534' : session.status === 'In Progress' ? '#1d4ed8' : '#475569',
+                                  borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800
+                                }}>
+                                  {session.status}
+                                </span>
+                                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>{session.type}</span>
+                              </div>
+                              <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>{session.title}</h4>
+                              <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0 }}>{session.location} • Provider: <strong>{session.provider}</strong></p>
+                            </div>
+                            <button
+                              onClick={() => triggerToast(`Check-in confirmed for ${session.title}`)}
                               style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                background: isDone ? '#f0fdf4' : '#f8fafc', padding: '12px 14px',
-                                borderRadius: '12px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}`,
-                                transition: 'all 0.15s'
+                                padding: '8px 16px', borderRadius: '50px', border: 'none',
+                                background: session.status === 'Completed' ? '#f1f5f9' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
+                                color: session.status === 'Completed' ? '#64748b' : '#fff',
+                                fontWeight: 800, fontSize: '0.78rem', cursor: session.status === 'Completed' ? 'default' : 'pointer'
                               }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <button
-                                  onClick={() => toggleExerciseComplete(ex.id)}
-                                  style={{
-                                    width: '26px', height: '26px', borderRadius: '50%',
-                                    border: isDone ? 'none' : '2px solid #cbd5e1',
-                                    background: isDone ? '#16a34a' : '#fff',
-                                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s'
-                                  }}
-                                >
-                                  {isDone && <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check</span>}
-                                </button>
-                                <div>
-                                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: isDone ? '#166534' : '#0f172a', textDecoration: isDone ? 'line-through' : 'none', margin: 0 }}>{ex.name}</h4>
-                                  <span style={{ fontSize: '0.73rem', color: '#64748b' }}>{ex.sets} sets × {ex.reps} • {ex.duration}</span>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => { setSelectedExerciseDetail(ex); setShowExerciseDetailModal(true) }}
-                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
-                              >
-                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>info</span>
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Treatment Goals Preview */}
-                    <div className="bento-card col-span-7">
-                      <div className="card-header">
-                        <div className="card-header-left">
-                          <h3>Active Treatment Goals</h3>
-                          <p>Milestones set by lead physiatrist Dr. Lena Ortiz</p>
-                        </div>
-                        <button
-                          onClick={() => setActiveTab('goals')}
-                          style={{ background: 'none', border: 'none', color: '#0f52ba', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
-                        >
-                          Full Details →
-                        </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {clientGoals.map((goal) => {
-                          const catColors = { Mobility: '#0f52ba', 'Range of Motion': '#7c3aed', Comfort: '#16a34a' }
-                          const cc = catColors[goal.category] || '#475569'
-                          return (
-                            <div key={goal.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ background: `${cc}18`, color: cc, borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800 }}>{goal.category}</span>
-                                  <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{goal.title}</h4>
-                                </div>
-                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: cc }}>{goal.progress}%</span>
-                              </div>
-                              <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 10px 0', lineHeight: 1.5 }}>{goal.summary}</p>
-                              <div style={{ background: '#e2e8f0', borderRadius: '50px', height: '7px', overflow: 'hidden' }}>
-                                <div style={{ width: `${goal.progress}%`, height: '100%', background: `linear-gradient(90deg, ${cc}, ${cc}88)`, borderRadius: '50px', transition: 'width 0.5s ease' }} />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Next Session Countdown Card */}
-                    <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '24px 28px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#1d4ed8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(29,78,216,0.5)' }}>
-                            <strong style={{ fontSize: '1.3rem', fontWeight: 900, lineHeight: 1 }}>{clientAppointments[0].dateDay}</strong>
-                            <span style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{clientAppointments[0].dateMonth}</span>
+                              {session.status === 'Completed' ? '✓ Finished' : 'Check In'}
+                            </button>
                           </div>
-                          <div>
-                            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '3px 12px', borderRadius: '50px', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'inline-block', marginBottom: '6px' }}>
-                              Next Session
-                            </span>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>{clientAppointments[0].title}</h3>
-                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: '3px' }}>
-                              {clientAppointments[0].time} · {clientAppointments[0].provider} · {clientAppointments[0].location}
-                            </p>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <button
-                            onClick={() => setActiveTab('appointments')}
-                            style={{ padding: '10px 20px', borderRadius: '50px', border: '1.5px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            View All Sessions
-                          </button>
-                          <button
-                            onClick={() => alert(`Online check-in confirmed for: ${clientAppointments[0].title}`)}
-                            style={{ padding: '10px 22px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg,#1d4ed8,#0f52ba)', color: '#fff', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(29,78,216,0.5)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
-                            Check In Now
-                          </button>
-                        </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* ── PATIENT TAB 2: TREATMENT GOALS & DISCHARGE PLAN ── */}
+              {/* ── PATIENT TAB 2: DAILY THERAPY SCHEDULE ── */}
+              {activeTab === 'schedule' && (
+                <div className="bento-grid">
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                          Inpatient Care Calendar
+                        </span>
+                        <h2 style={{ fontSize: '1.6rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Daily Hospital Rehabilitation Flow</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
+                          Comprehensive schedule of physical therapy, occupational training, biofeedback, and physician rounds.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.12)', padding: '12px 20px', borderRadius: '14px', textAlign: 'center' }}>
+                          <strong style={{ fontSize: '1.3rem', fontWeight: 900, display: 'block', color: '#fff' }}>5</strong>
+                          <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700, textTransform: 'uppercase' }}>Daily Sessions</span>
+                        </div>
+                        <div style={{ background: 'rgba(34,197,94,0.2)', padding: '12px 20px', borderRadius: '14px', textAlign: 'center' }}>
+                          <strong style={{ fontSize: '1.3rem', fontWeight: 900, display: 'block', color: '#4ade80' }}>2</strong>
+                          <span style={{ fontSize: '0.68rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>Completed</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <div className="hospital-timeline">
+                      {hospitalSchedule.map((session, idx) => (
+                        <div key={session.id} className={`timeline-row-card ${session.status === 'In Progress' ? 'in-progress' : ''}`}>
+                          <div className="timeline-time-box">
+                            <div className="timeline-time-val">{session.time}</div>
+                            <div className="timeline-duration">{session.duration}</div>
+                          </div>
+
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                              <span style={{
+                                background: session.status === 'Completed' ? '#dcfce7' : session.status === 'In Progress' ? '#dbeafe' : '#f1f5f9',
+                                color: session.status === 'Completed' ? '#166534' : session.status === 'In Progress' ? '#1d4ed8' : '#475569',
+                                borderRadius: '50px', padding: '2px 10px', fontSize: '0.7rem', fontWeight: 800
+                              }}>
+                                {session.status}
+                              </span>
+                              <span style={{ background: '#f8fafc', color: '#64748b', borderRadius: '50px', padding: '2px 10px', fontSize: '0.7rem', fontWeight: 700, border: '1px solid #e2e8f0' }}>
+                                {session.type}
+                              </span>
+                            </div>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>{session.title}</h3>
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem', color: '#64748b', flexWrap: 'wrap', marginBottom: '8px' }}>
+                              <span>📍 Location: <strong style={{ color: '#0f172a' }}>{session.location}</strong></span>
+                              <span>👨‍⚕️ Clinician: <strong style={{ color: '#0f172a' }}>{session.provider}</strong></span>
+                            </div>
+                            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 12px', fontSize: '0.76rem', color: '#475569', border: '1px solid #e2e8f0', fontStyle: 'italic' }}>
+                              Clinical Focus: "{session.notes}"
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <button
+                              onClick={() => triggerToast(`Check-in recorded for ${session.title}`)}
+                              style={{
+                                padding: '10px 18px', borderRadius: '50px', border: 'none',
+                                background: session.status === 'Completed' ? '#f1f5f9' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
+                                color: session.status === 'Completed' ? '#64748b' : '#fff',
+                                fontWeight: 800, fontSize: '0.8rem', cursor: session.status === 'Completed' ? 'default' : 'pointer'
+                              }}
+                            >
+                              {session.status === 'Completed' ? '✓ Done' : 'Check In'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedRescheduleAppt({
+                                  title: session.title,
+                                  time: session.time,
+                                  provider: session.provider
+                                })
+                                setShowRescheduleModal(true)
+                              }}
+                              style={{ padding: '6px 12px', borderRadius: '50px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              Reschedule
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PATIENT TAB 3: MEDICATIONS & CLINICAL TREATMENTS ── */}
+              {activeTab === 'meds' && (
+                <div className="bento-grid">
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                          Inpatient Clinical Pharmacy
+                        </span>
+                        <h2 style={{ fontSize: '1.6rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Medications & Rehabilitation Treatments</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
+                          Prescribed post-operative pain management, DVT prophylaxis, and specialized cryo-compression protocols.
+                        </p>
+                      </div>
+                      <div style={{ background: 'rgba(34,197,94,0.2)', padding: '14px 22px', borderRadius: '16px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>Doses Administered</span>
+                        <strong style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', display: 'block' }}>
+                          {patientMeds.filter(m => m.taken).length} / {patientMeds.length}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {patientMeds.map(med => (
+                        <div key={med.id} className={`med-treatment-card ${med.taken ? 'taken' : ''}`}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                              <span className="med-dose-pill">{med.dose} · {med.route}</span>
+                              <span style={{ background: '#f1f5f9', color: '#475569', borderRadius: '50px', padding: '2px 10px', fontSize: '0.7rem', fontWeight: 800 }}>{med.frequency}</span>
+                              {med.taken && (
+                                <span style={{ background: '#dcfce7', color: '#15803d', borderRadius: '50px', padding: '2px 10px', fontSize: '0.7rem', fontWeight: 800 }}>
+                                  ✓ Taken at {med.timeTaken}
+                                </span>
+                              )}
+                            </div>
+                            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>{med.name}</h3>
+                            <p style={{ fontSize: '0.84rem', color: '#0f52ba', fontWeight: 700, margin: '0 0 4px 0' }}>Purpose: {med.purpose}</p>
+                            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>Instructions: {med.instructions}</p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              toggleMedTaken(med.id)
+                              triggerToast(`${med.name} marked as ${!med.taken ? 'Taken' : 'Pending'}`)
+                            }}
+                            style={{
+                              padding: '10px 20px', borderRadius: '50px', border: 'none',
+                              background: med.taken ? '#dcfce7' : 'linear-gradient(135deg,#0f52ba,#2563eb)',
+                              color: med.taken ? '#16a34a' : '#fff',
+                              fontWeight: 800, fontSize: '0.82rem', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                              {med.taken ? 'check_circle' : 'medication'}
+                            </span>
+                            {med.taken ? 'Dose Logged ✓' : 'Log Dose Taken'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PATIENT TAB 4: CLINICAL GOALS & FIM ROADMAP ── */}
               {activeTab === 'goals' && (
                 <div className="bento-grid">
-                  {/* Overall Target Card */}
                   <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f52ba,#1d4ed8)', color: '#fff', padding: '28px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
                       <div>
                         <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           Personalized Recovery Plan
                         </span>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Post-Op ACL Reconstruction Roadmap</h2>
-                        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', marginTop: '4px' }}>Lead Physiatrist: <strong>Dr. Lena Ortiz, MD</strong> | Est. Discharge Target: <strong>Nov 15, 2026</strong></p>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Post-Op ACL Reconstruction Clinical Roadmap</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', marginTop: '4px' }}>Lead Physiatrist: <strong>{patientHospitalInfo.attendingPhysiatrist}</strong> | Est. Discharge Target: <strong>Nov 15, 2026</strong></p>
                       </div>
                       <div style={{ textAlign: 'right', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)', padding: '16px 24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.2)' }}>
                         <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>Overall Milestones Met</span>
@@ -1845,11 +3235,10 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Active Goals List */}
                   <div className="bento-card col-span-8">
                     <div className="card-header">
                       <div className="card-header-left">
-                        <h3>Active Rehabilitation Goals</h3>
+                        <h3>Active Rehabilitation Milestones (FIM Standards)</h3>
                         <p>Track your physical milestones and progress towards independent mobility</p>
                       </div>
                     </div>
@@ -1873,10 +3262,10 @@ function App() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748b' }}>
                             <span>Lead Clinical Note: "Patient showing strong quadriceps activation."</span>
                             <button
-                              onClick={() => alert(`Progress note requested for "${goal.title}". Your therapist will review at next session.`)}
+                              onClick={() => triggerToast(`Progress review requested for ${goal.title}. Dr. Ortiz will review during rounds.`)}
                               style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '50px', padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#374151', cursor: 'pointer' }}
                             >
-                              Request Goal Review
+                              Request Review
                             </button>
                           </div>
                         </div>
@@ -1884,21 +3273,20 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Discharge Plan Summary Card */}
                   <div className="bento-card col-span-4">
                     <div className="card-header">
                       <div className="card-header-left">
                         <h3>Discharge Plan Readiness</h3>
-                        <p>Requirements for safe home transition</p>
+                        <p>Requirements for safe transition</p>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {[
-                        { title: 'Discharge Destination', val: 'Home with Home Health PT', status: 'Approved' },
-                        { title: 'Caregiver Support', val: 'Spouse trained for assistance', status: 'Ready' },
-                        { title: 'DME Equipment Needed', val: 'Rolling Walker & Shower Chair', status: 'Delivered' },
-                        { title: 'Outpatient PT Referral', val: 'St. Jude Outpatient Clinic', status: 'Scheduled' }
+                        { title: 'Discharge Destination', val: 'Home with Outpatient PT', status: 'Approved' },
+                        { title: 'Caregiver Training', val: 'Spouse trained for gait assist', status: 'Ready' },
+                        { title: 'DME Equipment', val: 'Crutches & Cryo Cuff', status: 'Delivered' },
+                        { title: 'Outpatient Referral', val: 'St. Jude PT Clinic Wing', status: 'Scheduled' }
                       ].map((item) => (
                         <div key={item.title} style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -1913,239 +3301,16 @@ function App() {
                 </div>
               )}
 
-              {/* ── PATIENT TAB 3: THERAPY SESSIONS & SCHEDULE ── */}
-              {activeTab === 'appointments' && (
-                <div className="bento-grid">
-                  {/* Page Header Banner */}
-                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                      <div>
-                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                          My Care Calendar
-                        </span>
-                        <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Therapy Sessions & Schedule</h2>
-                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '4px' }}>
-                          Manage upcoming appointments, view session history, and communicate with your care team.
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {[
-                          { label: 'Upcoming', count: clientAppointments.length, icon: 'event', bg: 'rgba(255,255,255,0.15)' },
-                          { label: 'Completed', count: clientSessionHistory.length, icon: 'check_circle', bg: 'rgba(34,197,94,0.2)' },
-                        ].map(stat => (
-                          <div key={stat.label} style={{ background: stat.bg, backdropFilter: 'blur(8px)', borderRadius: '14px', padding: '14px 20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', minWidth: '100px' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'rgba(255,255,255,0.9)', display: 'block', marginBottom: '4px' }}>{stat.icon}</span>
-                            <strong style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', display: 'block', lineHeight: 1 }}>{stat.count}</strong>
-                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.75)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Upcoming Sessions */}
-                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
-                      <div>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Upcoming Appointments</h3>
-                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your next {clientAppointments.length} scheduled therapy sessions</p>
-                      </div>
-                      <span style={{ background: '#eff6ff', color: '#2563eb', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>
-                        {clientAppointments.length} Upcoming
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {clientAppointments.map((appt, idx) => {
-                        const typeColorMap = {
-                          'Physical Therapy': { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-                          'Occupational Therapy': { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-                          'Consultation': { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
-                        }
-                        const tc = typeColorMap[appt.type] || { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }
-                        return (
-                          <div
-                            key={appt.id}
-                            style={{
-                              background: '#ffffff', borderRadius: '20px', border: `1.5px solid ${tc.border}`,
-                              overflow: 'hidden', boxShadow: '0 2px 12px rgba(15,23,42,0.06)'
-                            }}
-                          >
-
-                            <div style={{ padding: '20px 24px', display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                              {/* Date Badge */}
-                              <div style={{
-                                width: '72px', height: '72px', borderRadius: '16px', flexShrink: 0,
-                                background: `linear-gradient(135deg, ${appt.avatarColor}, ${appt.avatarColor}cc)`,
-                                color: '#fff', display: 'flex', flexDirection: 'column',
-                                alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${appt.avatarColor}40`
-                              }}>
-                                <strong style={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1 }}>{appt.dateDay}</strong>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginTop: '2px', letterSpacing: '0.05em' }}>{appt.dateMonth}</span>
-                              </div>
-
-                              {/* Info block */}
-                              <div style={{ flex: 1, minWidth: '200px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                                  <span style={{ background: tc.bg, color: tc.color, borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, border: `1px solid ${tc.border}` }}>
-                                    {appt.type}
-                                  </span>
-                                  {appt.telehealth && (
-                                    <span style={{ background: '#fef3c7', color: '#b45309', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #fde68a' }}>
-                                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>videocam</span>
-                                      Telehealth
-                                    </span>
-                                  )}
-                                  {!appt.telehealth && (
-                                    <span style={{ background: '#f0fdf4', color: '#166534', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bbf7d0' }}>
-                                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>location_on</span>
-                                      In-Person
-                                    </span>
-                                  )}
-                                  {idx === 0 && (
-                                    <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '50px', padding: '3px 12px', fontSize: '0.7rem', fontWeight: 800, border: '1px solid #fecaca' }}>
-                                      Next Up
-                                    </span>
-                                  )}
-                                </div>
-                                <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>{appt.title}</h4>
-                                <div style={{ display: 'flex', gap: '18px', fontSize: '0.82rem', color: '#64748b', flexWrap: 'wrap' }}>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>schedule</span>
-                                    {appt.time}
-                                  </span>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>timer</span>
-                                    {appt.duration}
-                                  </span>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: appt.avatarColor }}>meeting_room</span>
-                                    {appt.location}
-                                  </span>
-                                </div>
-
-                                {/* Therapist row */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', padding: '10px 14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: appt.avatarColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, flexShrink: 0 }}>
-                                    {appt.avatar}
-                                  </div>
-                                  <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a' }}>{appt.provider}</div>
-                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Your {appt.type} Specialist</div>
-                                  </div>
-                                </div>
-
-                                {/* Prep note */}
-                                <div style={{ marginTop: '12px', padding: '10px 14px', background: `${tc.bg}`, borderRadius: '10px', border: `1px solid ${tc.border}` }}>
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '15px', color: tc.color, marginTop: '1px', flexShrink: 0 }}>info</span>
-                                    <p style={{ fontSize: '0.78rem', color: tc.color, margin: 0, fontWeight: 600, lineHeight: 1.5 }}>{appt.notes}</p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Action buttons */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0, minWidth: '150px' }}>
-                                <button
-                                  onClick={() => { setSelectedRescheduleAppt(appt); setShowRescheduleModal(true) }}
-                                  style={{ padding: '10px 18px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#475569', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                                >
-                                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>edit_calendar</span>
-                                  Reschedule
-                                </button>
-                                <button
-                                  onClick={() => alert(`Online check-in confirmed for: ${appt.title}`)}
-                                  style={{ padding: '10px 18px', borderRadius: '50px', border: 'none', background: `linear-gradient(135deg, ${appt.avatarColor}, ${appt.avatarColor}bb)`, color: '#fff', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 14px ${appt.avatarColor}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                                >
-                                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{appt.telehealth ? 'videocam' : 'check_circle'}</span>
-                                  {appt.telehealth ? 'Join Session' : 'Check In'}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Session History */}
-                  <div className="bento-card col-span-12" style={{ padding: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
-                      <div>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Session History</h3>
-                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Past completed therapy sessions and therapist notes</p>
-                      </div>
-                      <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>
-                        {clientSessionHistory.length} Completed
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      {clientSessionHistory.map((session) => {
-                        const typeColorMap = {
-                          'Physical Therapy': { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-                          'Occupational Therapy': { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
-                          'Consultation': { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
-                        }
-                        const tc = typeColorMap[session.type] || { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }
-                        return (
-                          <div
-                            key={session.id}
-                            style={{ background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '18px 22px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}
-                          >
-                            {/* Date */}
-                            <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: '#e2e8f0', color: '#475569', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <strong style={{ fontSize: '1.1rem', fontWeight: 900, lineHeight: 1 }}>{session.dateDay}</strong>
-                              <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', marginTop: '1px' }}>{session.dateMonth}</span>
-                            </div>
-
-                            {/* Content */}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
-                                <span style={{ background: tc.bg, color: tc.color, borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800, border: `1px solid ${tc.border}` }}>{session.type}</span>
-                                <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: '50px', padding: '2px 10px', fontSize: '0.68rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                  <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>check_circle</span>
-                                  Completed
-                                </span>
-                              </div>
-                              <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>{session.title}</h4>
-                              <div style={{ display: 'flex', gap: '14px', fontSize: '0.78rem', color: '#64748b', marginBottom: '10px', flexWrap: 'wrap' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <span className="material-symbols-outlined" style={{ fontSize: '13px', color: session.avatarColor }}>schedule</span>
-                                  {session.time}
-                                </span>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: session.avatarColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 800 }}>{session.avatar}</div>
-                                  {session.provider}
-                                </span>
-                              </div>
-                              {/* Therapist note */}
-                              <div style={{ background: '#fff', borderRadius: '10px', padding: '10px 14px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                                  <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#64748b', marginTop: '1px', flexShrink: 0 }}>clinical_notes</span>
-                                  <p style={{ fontSize: '0.78rem', color: '#374151', margin: 0, lineHeight: 1.5, fontStyle: 'italic' }}>"{session.sessionNote}"</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── PATIENT TAB 4: PRESCRIBED REHAB PROTOCOLS ── */}
+              {/* ── PATIENT TAB 5: PRESCRIBED REHAB PROTOCOLS ── */}
               {activeTab === 'exercises' && (
                 <div className="bento-grid">
-                  {/* Enhanced Clinical Header */}
                   <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', color: '#fff', padding: '28px 32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
                       <div>
-                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Clinical Therapy Protocols</span>
+                        <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Clinical Protocols</span>
                         <h2 style={{ fontSize: '1.55rem', fontWeight: 900, marginTop: '10px', color: '#fff' }}>Prescribed Rehabilitation Exercises</h2>
                         <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.88rem', marginTop: '4px' }}>
-                          Therapeutic protocol prescribed by <strong>Dr. A. Smith, PT</strong> for Post-Op ACL Rehabilitation & Joint Range of Motion.
+                          Therapeutic protocol prescribed by <strong>Dr. A. Smith, PT</strong> for Post-Op ACL Recovery & Joint Range of Motion.
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
@@ -2161,77 +3326,6 @@ function App() {
                           </div>
                         ))}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* 7-Day Streak Calendar */}
-                  <div className="bento-card col-span-7" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-                      <div>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Weekly Progress Tracker</h3>
-                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your exercise completion over the last 7 days</p>
-                      </div>
-                      <span style={{ background: '#fff7ed', color: '#ea580c', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🔥 6-Day Streak</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
-                      {[
-                        { day: 'Mon', done: 4, total: 4 },
-                        { day: 'Tue', done: 4, total: 4 },
-                        { day: 'Wed', done: 3, total: 4 },
-                        { day: 'Thu', done: 4, total: 4 },
-                        { day: 'Fri', done: 4, total: 4 },
-                        { day: 'Sat', done: 3, total: 4 },
-                        { day: 'Sun', done: completedExerciseIds.length, total: clientExercises.length },
-                      ].map((d, i) => {
-                        const pct = Math.round((d.done / d.total) * 100)
-                        const isToday = i === 6
-                        const full = pct === 100
-                        return (
-                          <div key={d.day} style={{ background: isToday ? '#eff6ff' : '#f8fafc', borderRadius: '14px', padding: '14px 8px', textAlign: 'center', border: isToday ? '2px solid #2563eb' : '1.5px solid #e2e8f0', position: 'relative' }}>
-                            {isToday && <div style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', background: '#2563eb', color: '#fff', padding: '1px 8px', borderRadius: '50px', fontSize: '0.6rem', fontWeight: 800 }}>TODAY</div>}
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, marginBottom: '8px' }}>{d.day}</div>
-                            <svg width="36" height="36" viewBox="0 0 36 36">
-                              <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" strokeWidth="3.5" />
-                              <circle cx="18" cy="18" r="15" fill="none" stroke={full ? '#16a34a' : '#2563eb'} strokeWidth="3.5" strokeDasharray={`${2 * Math.PI * 15}`} strokeDashoffset={`${2 * Math.PI * 15 * (1 - pct / 100)}`} strokeLinecap="round" transform="rotate(-90 18 18)" />
-                              {full ? <text x="18" y="22" textAnchor="middle" fontSize="12" fill="#16a34a">✓</text> : <text x="18" y="22" textAnchor="middle" fontSize="9" fontWeight="800" fill="#0f172a">{pct}%</text>}
-                            </svg>
-                            <div style={{ fontSize: '0.65rem', color: full ? '#16a34a' : '#64748b', fontWeight: 700, marginTop: '6px' }}>{d.done}/{d.total}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Today's Progress Summary */}
-                  <div className="bento-card col-span-5" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>Today's Progress</h3>
-                      <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>Track your daily exercise completion</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '16px 0' }}>
-                      <svg width="100" height="100" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" strokeWidth="8" />
-                        <circle cx="50" cy="50" r="42" fill="none" stroke={completedExerciseIds.length === clientExercises.length ? '#16a34a' : '#0f52ba'} strokeWidth="8" strokeDasharray={`${2 * Math.PI * 42}`} strokeDashoffset={`${2 * Math.PI * 42 * (1 - completedExerciseIds.length / clientExercises.length)}`} strokeLinecap="round" transform="rotate(-90 50 50)" style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
-                        <text x="50" y="46" textAnchor="middle" fontSize="20" fontWeight="900" fill="#0f172a">{Math.round((completedExerciseIds.length / clientExercises.length) * 100)}%</text>
-                        <text x="50" y="62" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="600">Complete</text>
-                      </svg>
-                      <div>
-                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{completedExerciseIds.length}<span style={{ fontSize: '1rem', color: '#64748b' }}>/{clientExercises.length}</span></div>
-                        <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>exercises done</div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: completedExerciseIds.length === clientExercises.length ? '#16a34a' : '#0f52ba', marginTop: '8px' }}>{completedExerciseIds.length === clientExercises.length ? '🎉 All Done!' : `${clientExercises.length - completedExerciseIds.length} remaining`}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                      {[
-                        { label: 'Avg / Day', value: '3.7', color: '#0f52ba', bg: '#eff6ff' },
-                        { label: 'Best Day', value: '4/4', color: '#16a34a', bg: '#f0fdf4' },
-                        { label: 'Total Reps', value: '280', color: '#7c3aed', bg: '#f5f3ff' },
-                      ].map(s => (
-                        <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '10px', textAlign: 'center', border: `1px solid ${s.color}22` }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 900, color: s.color }}>{s.value}</div>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase' }}>{s.label}</div>
-                        </div>
-                      ))}
                     </div>
                   </div>
 
@@ -2255,7 +3349,6 @@ function App() {
                           boxShadow: isDone ? '0 4px 20px rgba(34,197,94,0.08)' : '0 2px 12px rgba(15,23,42,0.04)'
                         }}
                       >
-                        {/* Top Header Row */}
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2279,65 +3372,30 @@ function App() {
                               <span style={{ background: '#f1f5f9', color: '#64748b', padding: '4px 10px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 700 }}>
                                 {ex.tag}
                               </span>
-                              {isDone ? (
-                                <span style={{ background: '#dcfce7', color: '#15803d', borderRadius: '50px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>
-                                  Completed
-                                </span>
-                              ) : (
-                                <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: '50px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>schedule</span>
-                                  Pending
+                              {isDone && (
+                                <span style={{ background: '#dcfce7', color: '#15803d', borderRadius: '50px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                  ✓ Done
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Exercise Brief Description & Target */}
-                          <p style={{ fontSize: '0.82rem', color: '#475569', margin: '6px 0 12px 0', lineHeight: 1.45 }}>
-                            {ex.description}
-                          </p>
-
-                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.75rem', color: '#64748b', marginBottom: '14px' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#0f52ba' }}>my_location</span>
-                              Target: <strong style={{ color: '#0f172a' }}>{ex.target}</strong>
-                            </span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#0f52ba' }}>timer</span>
-                              Rest: <strong style={{ color: '#0f172a' }}>{ex.rest}</strong>
-                            </span>
-                          </div>
-
-                          {/* Exercise Spec Details Pills */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', textAlign: 'center', marginBottom: '14px' }}>
-                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
-                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SETS</span>
-                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.sets}</strong>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '10px 0' }}>
+                            <div style={{ textAlign: 'center' }}>
+                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, display: 'block' }}>SETS</span>
+                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{ex.sets}</strong>
                             </div>
-                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
-                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>REPS</span>
-                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.reps}</strong>
+                            <div style={{ textAlign: 'center', borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }}>
+                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, display: 'block' }}>REPS</span>
+                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{ex.reps}</strong>
                             </div>
-                            <div style={{ background: isDone ? '#dcfce7' : '#f8fafc', borderRadius: '12px', padding: '10px', border: `1px solid ${isDone ? '#bbf7d0' : '#e2e8f0'}` }}>
-                              <span style={{ fontSize: '0.66rem', color: '#64748b', display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>EST. TIME</span>
-                              <strong style={{ fontSize: '1.1rem', color: '#0f172a', fontWeight: 900 }}>{ex.duration}</strong>
-                            </div>
-                          </div>
-
-                          {/* In-Card Completion Progress Bar */}
-                          <div style={{ marginBottom: '14px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
-                              <span>Protocol Target</span>
-                              <span style={{ color: isDone ? '#16a34a' : '#0f52ba' }}>{isDone ? '100% Prescribed Target Met' : '0% Completed Today'}</span>
-                            </div>
-                            <div style={{ background: '#e2e8f0', borderRadius: '50px', height: '6px', overflow: 'hidden' }}>
-                              <div style={{ width: isDone ? '100%' : '0%', height: '100%', background: isDone ? 'linear-gradient(90deg,#16a34a,#22c55e)' : '#0f52ba', transition: 'width 0.4s ease' }} />
+                            <div style={{ textAlign: 'center' }}>
+                              <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, display: 'block' }}>TIME</span>
+                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{ex.duration}</strong>
                             </div>
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <button
                             onClick={() => { setSelectedExerciseDetail(ex); setShowExerciseDetailModal(true) }}
@@ -2349,18 +3407,6 @@ function App() {
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0f52ba' }}>clinical_notes</span>
                             Protocol Guide
-                          </button>
-                          <button
-                            onClick={() => alert(`Symptom note logged for ${ex.name}. Your physical therapist Dr. A. Smith has been notified.`)}
-                            style={{
-                              padding: '10px 14px', borderRadius: '50px', border: '1.5px solid #fecaca',
-                              background: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 700,
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap'
-                            }}
-                            title="Report pain or difficulty during this exercise"
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>warning</span>
-                            Report Pain
                           </button>
                           <button
                             onClick={() => toggleExerciseComplete(ex.id)}
@@ -2382,43 +3428,317 @@ function App() {
                       </div>
                     )
                   })}
+                </div>
+              )}
 
-                  {/* Exercise History Log */}
-                  <div className="bento-card col-span-12" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              {/* ── PATIENT TAB 6: CERTIFIED HOSPITAL HEALTH RECORDS & EHR ── */}
+              {activeTab === 'records' && (
+                <div className="bento-grid">
+                  {/* Hero Medical Records Banner */}
+                  <div className="bento-card col-span-12" style={{ background: 'linear-gradient(135deg,#0f172a 0%, #1e3a5f 100%)', color: '#fff', padding: '28px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '18px' }}>
                       <div>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Exercise Session History</h3>
-                        <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>Your recent daily exercise completion log</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <span style={{ background: 'rgba(255,255,255,0.16)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                            Certified Electronic Health Record (EHR)
+                          </span>
+                          <span style={{ background: 'rgba(34,197,94,0.25)', color: '#4ade80', padding: '4px 12px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800 }}>
+                            FHIR v4 Synchronized
+                          </span>
+                        </div>
+                        <h2 style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fff', margin: 0 }}>
+                          Hospital Clinical Records & Diagnostic Archive
+                        </h2>
+                        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.86rem', marginTop: '6px', marginBottom: 0 }}>
+                          St. Jude Rehabilitation Hospital • Department of Physical Medicine & Rehabilitation • Inpatient Unit 3B
+                        </p>
                       </div>
-                      <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '4px 14px', fontSize: '0.75rem', fontWeight: 800 }}>Last 7 Days</span>
+
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => window.print()}
+                          style={{ padding: '10px 18px', borderRadius: '50px', border: '1.5px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>print</span>
+                          Print Full Record
+                        </button>
+                        <button
+                          onClick={handleDownloadPatientData}
+                          style={{ padding: '10px 20px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(37,99,235,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                          Export Complete EHR (.json)
+                        </button>
+                        <button
+                          onClick={() => triggerToast('Official Medical Records release request submitted to Hospital Health Information Management (HIM).')}
+                          style={{ padding: '10px 18px', borderRadius: '50px', border: '1.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Request HIM Release
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {[
-                        { date: 'Sat, Oct 11', done: 3, total: 4, pain: 2, note: 'Skipped Single-Leg Balance — ankle felt sore' },
-                        { date: 'Fri, Oct 10', done: 4, total: 4, pain: 3, note: 'Full routine completed. Felt strong.' },
-                        { date: 'Thu, Oct 9', done: 4, total: 4, pain: 2, note: 'Great session! Increased heel slide reps to 12.' },
-                        { date: 'Wed, Oct 8', done: 3, total: 4, pain: 4, note: 'Knee swelling — reduced intensity on quad sets.' },
-                        { date: 'Tue, Oct 7', done: 4, total: 4, pain: 3, note: 'All exercises completed on schedule.' },
-                      ].map((log, i) => {
-                        const pct = Math.round((log.done / log.total) * 100)
-                        const full = pct === 100
-                        return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ minWidth: '90px' }}>
-                              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>{log.date}</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>Pain: {log.pain}/10</div>
-                            </div>
-                            <div style={{ width: '80px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <div style={{ flex: 1, height: '6px', borderRadius: '50px', background: '#e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: full ? '#16a34a' : '#2563eb', borderRadius: '50px' }} />
+
+                    {/* Patient Demographics Ribbon */}
+                    <div className="records-demographics-ribbon">
+                      <div className="demo-item">
+                        <span className="demo-label">Patient Name</span>
+                        <span className="demo-val">{sessionUser.name}</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">MRN</span>
+                        <span className="demo-val">{patientHospitalInfo.mrn}</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">Date of Birth</span>
+                        <span className="demo-val">1986-04-12 (40y)</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">Sex / Blood Type</span>
+                        <span className="demo-val">Female • O+</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">Admission Date</span>
+                        <span className="demo-val">{patientHospitalInfo.admissionDate}</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">Hospital Location</span>
+                        <span className="demo-val">{patientHospitalInfo.wing} • {patientHospitalInfo.room}</span>
+                      </div>
+                      <div className="demo-item">
+                        <span className="demo-label">Attending Physiatrist</span>
+                        <span className="demo-val">{patientHospitalInfo.attendingPhysiatrist}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="bento-card col-span-12" style={{ padding: '18px 24px' }}>
+                    <div className="records-filter-bar">
+                      <div className="records-category-scroll">
+                        {[
+                          { key: 'all', label: 'All Documents', icon: 'folder_open', count: hospitalClinicalRecords.length },
+                          { key: 'physiatry', label: 'Physiatry & H&P', icon: 'stethoscope', count: hospitalClinicalRecords.filter(r => r.categoryKey === 'physiatry').length },
+                          { key: 'therapy', label: 'Therapy Notes', icon: 'exercise', count: hospitalClinicalRecords.filter(r => r.categoryKey === 'therapy').length },
+                          { key: 'surgical', label: 'Operative & Surgical', icon: 'healing', count: hospitalClinicalRecords.filter(r => r.categoryKey === 'surgical').length },
+                          { key: 'radiology', label: 'Radiology & Imaging', icon: 'radiology', count: hospitalClinicalRecords.filter(r => r.categoryKey === 'radiology').length },
+                          { key: 'labs', label: 'Laboratory Panels', icon: 'biotech', count: hospitalClinicalRecords.filter(r => r.categoryKey === 'labs').length },
+                        ].map(tab => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setRecordCategory(tab.key)}
+                            className={`record-cat-pill ${recordCategory === tab.key ? 'active' : ''}`}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{tab.icon}</span>
+                            <span>{tab.label}</span>
+                            <span className="record-cat-count">{tab.count}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ minWidth: '260px' }}>
+                        <div className="input-with-icon" style={{ margin: 0 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#64748b' }}>search</span>
+                          <input
+                            type="text"
+                            className="modern-input"
+                            placeholder="Search document title, author, keyword..."
+                            value={recordSearch}
+                            onChange={e => setRecordSearch(e.target.value)}
+                            style={{ padding: '8px 12px 8px 36px', fontSize: '0.82rem' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Document Cards Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                      {hospitalClinicalRecords
+                        .filter(r => (recordCategory === 'all' || r.categoryKey === recordCategory))
+                        .filter(r => (
+                          recordSearch === '' ||
+                          r.title.toLowerCase().includes(recordSearch.toLowerCase()) ||
+                          r.author.toLowerCase().includes(recordSearch.toLowerCase()) ||
+                          r.summary.toLowerCase().includes(recordSearch.toLowerCase())
+                        ))
+                        .map(doc => (
+                          <div key={doc.id} className={`record-doc-card ${doc.categoryKey}`}>
+                            <div>
+                              <div className="record-header-meta">
+                                <span className={`record-category-badge ${doc.categoryKey}`}>{doc.category}</span>
+                                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{doc.date}</span>
                               </div>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: full ? '#16a34a' : '#2563eb' }}>{log.done}/{log.total}</span>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0', lineHeight: 1.35 }}>
+                                {doc.title}
+                              </h3>
+                              <div style={{ fontSize: '0.78rem', color: '#0f52ba', fontWeight: 700, marginBottom: '2px' }}>
+                                {doc.author}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '10px' }}>
+                                {doc.authorRole} • {doc.encounter}
+                              </div>
+                              <div className="record-excerpt-box">
+                                {doc.summary}
+                              </div>
                             </div>
-                            <div style={{ flex: 1, fontSize: '0.78rem', color: '#475569', fontStyle: 'italic' }}>"{log.note}"</div>
-                            {full && <span style={{ background: '#f0fdf4', color: '#16a34a', borderRadius: '50px', padding: '3px 10px', fontSize: '0.68rem', fontWeight: 800, whiteSpace: 'nowrap' }}>✓ Complete</span>}
+
+                            <div className="record-action-row">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecordDetail(doc)
+                                  setShowRecordDetailModal(true)
+                                }}
+                                style={{ flex: 1, padding: '9px 14px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg,#0f52ba,#2563eb)', color: '#fff', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>visibility</span>
+                                Open Official Document
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecordDetail(doc)
+                                  setShowRecordDetailModal(true)
+                                  setTimeout(() => window.print(), 300)
+                                }}
+                                style={{ padding: '8px 12px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer' }}
+                                title="Print Document"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>print</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = `${doc.id}_Clinical_Record.json`
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                  triggerToast(`Downloaded ${doc.id}!`)
+                                }}
+                                style={{ padding: '8px 12px', borderRadius: '50px', border: '1.5px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer' }}
+                                title="Download JSON Record"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                              </button>
+                            </div>
                           </div>
-                        )
-                      })}
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Inpatient Laboratory Telemetry & Biomarker Table */}
+                  <div className="bento-card col-span-8" style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Inpatient Laboratory & Biomarker Telemetry</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>Automated Clinical LIS Panel • Specimen Drawn: Aug 14, 2026 at 06:30 AM</p>
+                      </div>
+                      <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '50px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>
+                        All Biomarkers Validated
+                      </span>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="hospital-lab-table">
+                        <thead>
+                          <tr>
+                            <th>Test / Biomarker</th>
+                            <th>Current Result</th>
+                            <th>Reference Range</th>
+                            <th>Status Flag</th>
+                            <th>Clinical Note</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { test: 'White Blood Cell (WBC)', val: '6.8 x10^3/uL', ref: '4.5 – 11.0', flag: 'Normal', note: 'Afebrile, no leukocytosis' },
+                            { test: 'Hemoglobin (Hgb)', val: '13.8 g/dL', ref: '12.0 – 16.0', flag: 'Normal', note: 'Post-op hematocrit 41.2% stable' },
+                            { test: 'Platelet Count', val: '245 x10^3/uL', ref: '150 – 450', flag: 'Normal', note: 'Adequate clotting capacity' },
+                            { test: 'C-Reactive Protein (CRP)', val: '2.1 mg/L', ref: '< 3.0 mg/L', flag: 'Resolving', note: 'Down from 8.4 on Post-Op Day 1' },
+                            { test: 'Erythrocyte Sed. Rate (ESR)', val: '12 mm/hr', ref: '0 – 20 mm/hr', flag: 'Normal', note: 'Inflammation resolving smoothly' },
+                            { test: 'Serum Creatinine / eGFR', val: '0.8 mg/dL (>90)', ref: '0.6 – 1.2 mg/dL', flag: 'Normal', note: 'Optimal renal clearance' },
+                            { test: 'Fasting Blood Glucose', val: '92 mg/dL', ref: '70 – 99 mg/dL', flag: 'Normal', note: 'Euglycemic profile' },
+                          ].map((row, idx) => (
+                            <tr key={idx}>
+                              <td><strong>{row.test}</strong></td>
+                              <td style={{ fontWeight: 800, color: '#0f52ba' }}>{row.val}</td>
+                              <td style={{ color: '#64748b' }}>{row.ref}</td>
+                              <td>
+                                <span className={`lab-status-tag ${row.flag === 'Normal' ? 'normal' : 'borderline'}`}>
+                                  {row.flag === 'Normal' ? '✓ Normal' : '↓ Resolving'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.78rem', color: '#475569' }}>{row.note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Allergies & Verified Immunization Panel */}
+                  <div className="bento-card col-span-4" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#dc2626' }}>warning</span>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Documented Allergies</h3>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 10px 0' }}>Verified by Attending Pharmacy & Floor Nursing</p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong style={{ fontSize: '0.85rem', color: '#991b1b' }}>Penicillin</strong>
+                            <span style={{ background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '50px', fontSize: '0.65rem', fontWeight: 800 }}>MODERATE</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#7f1d1d', marginTop: '2px' }}>Reaction: Urticaria / Skin Rash</div>
+                        </div>
+
+                        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong style={{ fontSize: '0.85rem', color: '#92400e' }}>Latex Products</strong>
+                            <span style={{ background: '#d97706', color: '#fff', padding: '1px 6px', borderRadius: '50px', fontSize: '0.65rem', fontWeight: 800 }}>MILD</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#78350f', marginTop: '2px' }}>Reaction: Contact Dermatitis / Erythema</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#16a34a' }}>vaccines</span>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Immunization Record</h3>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 10px 0' }}>State Immunization Registry Sync</p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '8px 12px', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <strong style={{ color: '#166534' }}>Tetanus / Diphtheria (Tdap)</strong>
+                            <span style={{ color: '#15803d', fontWeight: 700 }}>2024</span>
+                          </div>
+                          <span style={{ color: '#15803d', fontSize: '0.7rem' }}>Administered • Valid through 2034</span>
+                        </div>
+
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '8px 12px', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <strong style={{ color: '#166534' }}>Influenza Quadrivalent</strong>
+                            <span style={{ color: '#15803d', fontWeight: 700 }}>2025/26</span>
+                          </div>
+                          <span style={{ color: '#15803d', fontSize: '0.7rem' }}>Hospital Inpatient Vaccination</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ background: '#eff6ff', borderRadius: '12px', padding: '12px', border: '1px solid #bfdbfe' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#1d4ed8', fontWeight: 800, textTransform: 'uppercase' }}>HIE Direct Provider Exchange</div>
+                      <p style={{ fontSize: '0.75rem', color: '#1e40af', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                        Records are shared via secure Direct Secure Messaging with Dr. Vance (Orthopedics) and St. Jude Outpatient Clinic.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -104,6 +104,63 @@ router.post('/register', (req, res) => {
   }
 })
 
+// POST /api/auth/forgot-password
+router.post('/forgot-password', (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' })
+    }
+
+    const user = db.prepare('SELECT id, email, name FROM users WHERE email = ?').get(email)
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address' })
+    }
+
+    // Generate demo 6-digit recovery code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+    return res.json({
+      success: true,
+      message: `Password reset verification code generated for ${user.email}`,
+      resetCode: resetCode,
+      userName: user.name
+    })
+  } catch (err) {
+    console.error('[Forgot Password Error]', err)
+    return res.status(500).json({ error: 'Internal server error during password reset request' })
+  }
+})
+
+// POST /api/auth/reset-password
+router.post('/reset-password', (req, res) => {
+  try {
+    const { email, newPassword } = req.body
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' })
+    }
+
+    if (newPassword.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters long' })
+    }
+
+    const user = db.prepare('SELECT id, email FROM users WHERE email = ?').get(email)
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found' })
+    }
+
+    db.prepare('UPDATE users SET password_hash = ? WHERE email = ?').run(newPassword, email)
+
+    return res.json({
+      success: true,
+      message: 'Your password has been successfully reset. You can now log in.'
+    })
+  } catch (err) {
+    console.error('[Reset Password Error]', err)
+    return res.status(500).json({ error: 'Internal server error during password reset' })
+  }
+})
+
 // GET /api/auth/me
 router.get('/me', (req, res) => {
   const userId = req.query.userId || 1
@@ -122,3 +179,4 @@ router.get('/me', (req, res) => {
 })
 
 export default router
+
